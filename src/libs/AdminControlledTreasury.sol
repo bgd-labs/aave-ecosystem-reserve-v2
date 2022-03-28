@@ -30,9 +30,8 @@ contract AdminControlledTreasury is VersionedInitializable {
         _;
     }
 
-    function initialize(address reserveController) external initializer {
-        _setFundsAdmin(reserveController);
-    }
+    // On this revision, the controller of collector doesn't need to be set, as it already is
+    function initialize() external initializer {}
 
     function approve(
         IERC20 token,
