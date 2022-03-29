@@ -5,9 +5,20 @@ import {IInitializableAdminUpgradeabilityProxy} from "../interfaces/IInitializab
 import {BaseTest} from "./base/BaseTest.sol";
 import {AaveStreamingTreasuryV1} from "../AaveStreamingTreasuryV1.sol";
 import {IAdminControlledTreasury} from "../interfaces/IAdminControlledTreasury.sol";
+import {ISablier} from "../interfaces/ISablier.sol";
 import {console} from "./utils/console.sol";
 
 contract ValidationNewTreasury is BaseTest {
+    event CreateStream(
+        uint256 indexed streamId,
+        address indexed sender,
+        address indexed recipient,
+        uint256 deposit,
+        address tokenAddress,
+        uint256 startTime,
+        uint256 stopTime
+    );
+
     IInitializableAdminUpgradeabilityProxy public constant COLLECTOR_V2_PROXY =
         IInitializableAdminUpgradeabilityProxy(
             0x464C71f6c2F760DdA6093dCB91C24c39e5d6e18c
@@ -24,16 +35,14 @@ contract ValidationNewTreasury is BaseTest {
 
     address public constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
-    function setUp() public {}
-
-    function testTreasury() public {
+    function setUp() public {
         _initNewCollectorOnProxy();
+    }
 
-        AaveStreamingTreasuryV1 treasuryProxy = AaveStreamingTreasuryV1(
-            address(COLLECTOR_V2_PROXY)
+    function testCreation() public {
+        _Creation_validate(
+            AaveStreamingTreasuryV1(address(COLLECTOR_V2_PROXY))
         );
-
-        _Creation_validate(treasuryProxy);
     }
 
     function _initNewCollectorOnProxy() internal returns (address) {
@@ -136,6 +145,49 @@ contract ValidationNewTreasury is BaseTest {
             WETH,
             block.timestamp + 10,
             block.timestamp
+        );
+
+        vm.expectEmit(true, true, true, true);
+        emit CreateStream(
+            100000,
+            address(treasuryProxy),
+            RECIPIENT_STREAM_1,
+            6 ether,
+            WETH,
+            block.timestamp + 10,
+            (block.timestamp + 10) + 60
+        );
+        uint256 streamId = treasuryProxy.createStream(
+            RECIPIENT_STREAM_1,
+            6 ether,
+            WETH,
+            block.timestamp + 10,
+            (block.timestamp + 10) + 60
+        );
+        require(streamId == 100000, "INVALID_STREAM_ID");
+
+        (
+            address sender,
+            address recipient,
+            uint256 deposit,
+            address tokenAddress,
+            uint256 startTime,
+            uint256 stopTime,
+            uint256 remainingBalance,
+            uint256 ratePerSecond
+        ) = treasuryProxy.getStream(streamId);
+
+        require(sender == address(treasuryProxy), "INVALID_SENDER");
+        require(recipient == RECIPIENT_STREAM_1, "INVALID_RECIPIENT");
+        require(deposit == 6 ether, "INVALID_DEPOSIT");
+        require(tokenAddress == WETH, "INVALID_ASSET");
+        require(startTime == block.timestamp + 10, "INVALID_STARTTIME");
+        require(stopTime == (block.timestamp + 10) + 60, "INVALID_STOPTIME");
+        require(remainingBalance == 6 ether, "INVALID_REMAINING_BALANCE");
+        require(ratePerSecond == 6 ether / 60, "INVALID_RATE_PER_SECOND");
+        require(
+            treasuryProxy.nextStreamId() == streamId + 1,
+            "INVALID_NEXT_STREAM_ID"
         );
     }
 }
