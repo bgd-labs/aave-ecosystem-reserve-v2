@@ -62,7 +62,7 @@ contract AaveStreamingTreasuryV1 is
 
     /*** Contract Logic Starts Here */
 
-    constructor() {
+    function initialize() external initializer {
         nextStreamId = 100000;
     }
 
