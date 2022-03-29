@@ -4,7 +4,12 @@ reports/
 .env
 .env.local
 .DS_Store
+.vscode
 
 # Foundry
 out/
 cache/
+
+# Certora
+.certora_*
+resource_errors.json
