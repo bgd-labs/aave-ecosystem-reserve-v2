@@ -13,3 +13,4 @@ cache/
 # Certora
 .certora_*
 resource_errors.json
+*.zip
