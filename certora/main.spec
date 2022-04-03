@@ -19,6 +19,8 @@ methods {
 // CVL Functions
 ///////////////////////////////////////////////////////////////////////////////////
 
+definition FirstStreamId() returns uint256 = 100000;
+
 function getStreamRemainingBalance(uint256 streamId) returns uint256 {
     address sender; address recipient; uint256 deposit; address tokenAddress;
     uint256 startTime; uint256 stopTime; uint256 remainingBalance; uint256 rps;
@@ -47,6 +49,14 @@ function getStreamRecipient(uint256 streamId) returns address {
     return recipient;
 }
 
+
+function getStreamSender(uint256 streamId) returns address {
+    address sender; address recipient; uint256 deposit; address tokenAddress;
+    uint256 startTime; uint256 stopTime; uint256 remainingBalance; uint256 rps;
+    sender, recipient, deposit, tokenAddress, startTime, stopTime, remainingBalance, rps = getStream(streamId);
+    return sender;
+}
+
 function getStreamStartTime(uint256 streamId) returns uint256 {
     address sender; address recipient; uint256 deposit; address tokenAddress;
     uint256 startTime; uint256 stopTime; uint256 remainingBalance; uint256 rps;
@@ -61,18 +71,13 @@ function getStreamStopTime(uint256 streamId) returns uint256 {
     return stopTime;
 }
 
-// ghost nextGhost() returns uint256{
-//     init_state axiom nextGhost() == 100000;
-// }
+function streamingTreasuryFunctions(method f) {
+    require f.selector == createStream(address, uint256, address, uint256, uint256).selector ||
+        f.selector == withdrawFromStream(uint256, uint256).selector ||
+        f.selector == cancelStream(uint256).selector;
+}
 
 
-// hook Sstore nextStreamId uint256 newStreamId STORAGE {
-//   havoc nextGhost assuming nextGhost@new() == newStreamId;
-// }
-
-// // fails
-// invariant noNextStreamIdExists()
-//     !getStreamExists(nextStreamId())
 
 ///////////////////////////////////////////////////////////////////////////////////
 // Invariants
@@ -94,6 +99,26 @@ invariant ratePerSecond_GE_1(uint256 streamId)
 invariant cantWithdrawTooEarly(env e, uint256 streamId)
     getStreamExists(streamId) && e.block.timestamp <= getStreamStartTime(streamId) =>
         balanceOf(e, streamId, getStreamRecipient(streamId)) == 0
+
+// 6. isEntity => recipient != 0 && sender != 0
+invariant streamHasSenderAndRecipient(uint256 streamId)
+    getStreamExists(streamId) => getStreamRecipient(streamId) != 0 && getStreamSender(streamId) != 0
+
+ghost mapping(uint256 => mathint) sumWithdrawalsPerStream {
+    init_state axiom forall uint256 t. sumWithdrawalsPerStream[t] == 0;
+}
+
+hook Sstore streams[KEY uint256 id].remainingBalance uint256 balance
+    (uint256 old_balance) STORAGE {
+        sumWithdrawalsPerStream[id] = sumWithdrawalsPerStream[id] + 
+            to_mathint(old_balance) - to_mathint(balance);
+    }
+
+// remaining balance is always the original deposit minus sum of all withdrawals
+invariant withdrawalsSolvent(uint256 streamId)
+    to_mathint(getStreamRemainingBalance(streamId)) == 
+        (to_mathint(getStreamDeposit(streamId)) - sumWithdrawalsPerStream[streamId])
+    filtered { f-> f.selector != createStream(address, uint256, address, uint256, uint256).selector }
 
 ///////////////////////////////////////////////////////////////////////////////////
 // Rules
@@ -147,6 +172,7 @@ rule integrityOfWithdraw(uint256 streamId, uint256 amount) {
 
 // withdraw is always possible: if user can withdraw x, they can withdraw their whole balanceOf.
 // assuming contract has all the tokens (max uint)
+// TODO: fails due to reentrancy
 rule fullWithdrawPossible(uint256 streamId) {
     env e;
     require getStreamExists(streamId);
@@ -206,6 +232,100 @@ rule createStreamCorrectness(address recipient, uint256 deposit, address tokenAd
     bool paramCheck = createStreamParamCheck(recipient, startTime, stopTime, deposit, e.msg.sender, e.block.timestamp);
     createStream@withrevert(e, recipient, deposit, tokenAddress, startTime, stopTime);
 
-
     assert lastReverted <=> !paramCheck;
 }
+
+rule noStreamAfterCancel(uint256 streamId) {
+    env e;
+
+    require getStreamExists(streamId);
+    cancelStream(e, streamId);
+    assert !getStreamExists(streamId);
+}
+
+// balance is not 0. do an op. if balance is 0 then stream not exists.
+rule zeroRemainingBalanceDeleted(method f, uint256 streamId) {
+    env e;
+    calldataarg args;
+
+    uint256 balanceBefore = getStreamRemainingBalance(streamId);
+    require balanceBefore > 0;
+
+    f(e, args);
+
+    uint256 balanceAfter = getStreamRemainingBalance(streamId);
+    assert balanceAfter > 0;
+
+}
+
+// 9. if recipient can't withdraw balance then erc20 balanceof(this contract) is not sufficient
+// if wihdraw failed and all params are good, then not enough tokens on the balance
+// doesn't work
+// rule failedWithdrawWhenInsolventOnly(uint256 streamId, uint256 amount){
+//     env e;
+//     calldataarg args;
+
+//     require getStreamExists(streamId);
+//     require e.msg.sender == getStreamRecipient(streamId) && e.msg.sender != 0;
+//     uint256 balance = balanceOf(e, streamId, e.msg.sender);
+//     require balance < getStreamDeposit(streamId);
+//     require amount <= balance && amount > 0;
+
+//     uint256 tokenBalance = _asset.balanceOf(currentContract);
+//     require _status() != 2;
+//     withdrawFromStream@withrevert(e, streamId, e.msg.sender);
+//     assert lastReverted => tokenBalance < amount;
+// }
+
+// doesn't work - reverts in token safeTransfer
+// try with same stream and same token
+// TODO fails
+rule withdrawAvailable(uint256 stream1, uint256 stream2, uint256 amount1, uint256 amount2 ) {
+    env e1;
+    env e2;
+    storage init = lastStorage;
+
+    withdrawFromStream(e1, stream1, amount1);
+
+    require getStreamExists(stream2);
+    require e2.msg.sender == getStreamRecipient(stream2) && e2.msg.sender != 0;
+    uint256 balance = balanceOf(e2, stream2, e2.msg.sender);
+    require balance < getStreamDeposit(stream2);
+    require amount2 <= balance && amount2 > 0;
+
+    uint256 tokenBalance = _asset.balanceOf(currentContract);
+    withdrawFromStream@withrevert(e2, stream2, amount2) at init;
+
+    assert lastReverted => tokenBalance < amount2;
+
+}
+
+
+// 1.5 after any action treasure balanceOf(token) doesn't decrease. 
+//  only on withdraw and cancel it can decrease appropriately
+
+rule treasuryBalanceCorrectness(method f, uint256 streamId) {
+    env e;
+
+    streamingTreasuryFunctions(f);
+    require getStreamRecipient(streamId) == e.msg.sender;
+    uint256 treasuryBalanceBefore = _asset.balanceOf(currentContract);
+    uint256 recipientBalanceBefore = balanceOf(e, streamId, e.msg.sender);
+
+    if (f.selector == withdrawFromStream(uint256, uint256).selector) {
+        uint256 amount;
+        withdrawFromStream(e, streamId, amount);
+    } else if (f.selector == cancelStream(uint256).selector) {
+        cancelStream(e, streamId);
+    } else {
+
+        calldataarg args;
+        f(e, args);
+    }
+
+    uint256 treasuryBalanceAfter = _asset.balanceOf(currentContract);
+
+    assert treasuryBalanceBefore - treasuryBalanceAfter <= recipientBalanceBefore;
+}
+
+

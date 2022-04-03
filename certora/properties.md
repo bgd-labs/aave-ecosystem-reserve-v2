@@ -2,6 +2,10 @@
 ## Major properties
 
 1. (sum of all withdrawals from a stream) <= deposit. So that treasure cannot lose money.
+invariant `withdrawalsSolvent`
+
+10. treasury's balanceOf(token) can decrease appropriately only on withdraw and cancel.
+rule `treasuryBalanceCorrectness`
 
 2. For all streams, stream.ratePerSecond >= 1 (valid state).
 invariant `ratePerSecond_GE_1` [v]
@@ -26,7 +30,7 @@ invariant `balanceOf_LE_deposit` [v]
 invariant `cantWithdrawTooEarly` [v]
 
 8. stream.remainingBalance can only go down 
- rule `streamRemainingBalanceMonotonicity` [v]
+rule `streamRemainingBalanceMonotonicity` [v]
 
 9. additivity of withdraw ?
 
@@ -52,25 +56,25 @@ invariant `cantWithdrawTooEarly` [v]
 `createStreamCorrectness` [v]
 
 3. cancelStream():
-    - if the block timestamp is after stopTime, all the remaining balance goes to recipient.
+    - stream deleted after cancel
+`noStreamAfterCancel` [v]
 
-4. stream with id below 100000 can't exist.
 5. stream with remainingBalance of 0 is deleted. (withdraw)
+`zeroRemainingBalanceDeleted` [v]
+
 6. isEntity => recipient != 0 && sender != 0
+`streamHasSenderAndRecipient` [v]
 
 7. stream ratePerSecond is only set once in createStream()
-
-8. deposit >= remainingBalance. deposit != 0. deposit % duration == 0.
+`ratePerSecondSetOnlyOnce`
 
 9. if recipient can't withdraw balance then erc20 balanceof(this contract) is not sufficient
+`failedWithdrawWhenInsolventOnly` [x] - fails with reentrancy counterexample
 
 11. nextStreamId only goes up 
  `nextStreamIdCorrectness` [v]
 
 ## Doubt
-
-- if recipient can't withdraw balance then erc20 balanceof(this contract) is not sufficient. 
-How to check since contracts don't control erc20 balances. Trust assumption.
 
 - no stream with `nextStreamId` stream id exists.
 Not so important.
