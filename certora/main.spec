@@ -16,10 +16,12 @@ methods {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
-// CVL Functions
+// CVL Functions and Definitions
 ///////////////////////////////////////////////////////////////////////////////////
 
-definition FirstStreamId() returns uint256 = 100000;
+/*******************************
+* Getters for stream properties
+********************************/
 
 function getStreamRemainingBalance(uint256 streamId) returns uint256 {
     address sender; address recipient; uint256 deposit; address tokenAddress;
@@ -71,60 +73,197 @@ function getStreamStopTime(uint256 streamId) returns uint256 {
     return stopTime;
 }
 
+function getStreamToken(uint256 streamId) returns address {
+    address sender; address recipient; uint256 deposit; address tokenAddress;
+    uint256 startTime; uint256 stopTime; uint256 remainingBalance; uint256 rps;
+    sender, recipient, deposit, tokenAddress, startTime, stopTime, remainingBalance, rps = getStream(streamId);
+    return tokenAddress;
+}
+
+// returns true iff the parameter f is one of the three public stream functions
 function streamingTreasuryFunctions(method f) {
     require f.selector == createStream(address, uint256, address, uint256, uint256).selector ||
         f.selector == withdrawFromStream(uint256, uint256).selector ||
         f.selector == cancelStream(uint256).selector;
 }
 
-
+// checks the correctness of createStream parameters
+function createStreamParamCheck(address recipient, uint256 start, uint256 stop, 
+    uint256 deposit, address msgSender, uint256 blockTimestamp) returns bool {
+    
+    mathint duration = stop - start;
+    if (duration <= 0) return false;
+    return recipient != 0 && recipient != msgSender && recipient != currentContract &&
+        start >= blockTimestamp && deposit >= duration && nextStreamId() < max_uint256 &&
+        deposit % duration == 0 && msgSender == getFundsAdmin();
+}
 
 ///////////////////////////////////////////////////////////////////////////////////
 // Invariants
 ///////////////////////////////////////////////////////////////////////////////////
 
 
-// For all streams, remaining balance <= deposit.
+/*
+    @Rule
+
+    @Description:
+        Stream's remaining balance is always equal or less than the stream deposit
+
+    @Formula:
+        {
+            stream.remainingBalance <= stream.deposit
+        }
+
+    @Notes:
+
+    @Link:
+
+*/
 invariant remainingBalance_LE_deposit(uint256 streamId)
     getStreamExists(streamId) => getStreamRemainingBalance(streamId) <= getStreamDeposit(streamId)
 
+/*
+    @Rule
+
+    @Description:
+        stream's balanceOf() returns a value equal or less than stream's deposit
+    @Formula:
+        {
+            balanceOf(stream, alice) <= stream.deposit
+        }
+
+    @Notes:
+
+    @Link:
+    
+*/
 invariant balanceOf_LE_deposit(env e, uint256 streamId)
     getStreamExists(streamId) => balanceOf(e, streamId, getStreamRecipient(streamId)) <= getStreamDeposit(streamId)
 
 // For all streams, ratePerSecond >= 1
+/*
+    @Rule
+
+    @Description:
+        Stream's rate per second is always equal or greater than 1
+
+    @Formula:
+        {
+            stream.ratePerSecond >= 1
+        }
+
+    @Notes:
+
+    @Link:
+    
+*/
 invariant ratePerSecond_GE_1(uint256 streamId)
     getStreamExists(streamId) => getStreamRPS(streamId) >= 1
 
-// For all streams, recipient can't withdraw anything before start time is reached.
+
+/*
+    @Rule
+
+    @Description:
+        Recipient cannot withdraw before start time
+
+    @Formula:
+        {
+            stream.startTime >= block.timestamp => balanceOf(stream, recipient) == 0
+        }
+
+    @Notes:
+
+    @Link:
+
+*/
 invariant cantWithdrawTooEarly(env e, uint256 streamId)
     getStreamExists(streamId) && e.block.timestamp <= getStreamStartTime(streamId) =>
         balanceOf(e, streamId, getStreamRecipient(streamId)) == 0
 
-// 6. isEntity => recipient != 0 && sender != 0
+/*
+    @Rule
+
+    @Description:
+        Every stream has a sender and a recipient
+
+    @Formula:
+        {
+            stream.isEntity => stream.sender != 0 && stream.recipient != 0
+        }
+
+    @Notes:
+
+    @Link:
+
+*/
 invariant streamHasSenderAndRecipient(uint256 streamId)
     getStreamExists(streamId) => getStreamRecipient(streamId) != 0 && getStreamSender(streamId) != 0
 
+// accumulator for a  sum of all the withdrawals per stream
 ghost mapping(uint256 => mathint) sumWithdrawalsPerStream {
     init_state axiom forall uint256 t. sumWithdrawalsPerStream[t] == 0;
 }
 
+/*
+ RemainingBalance is updated as a result of a withdrawal. 
+ We calculate the withdrawal amount and add it to the withdrawals accumulator
+ */
 hook Sstore streams[KEY uint256 id].remainingBalance uint256 balance
     (uint256 old_balance) STORAGE {
         sumWithdrawalsPerStream[id] = sumWithdrawalsPerStream[id] + 
             to_mathint(old_balance) - to_mathint(balance);
     }
 
-// remaining balance is always the original deposit minus sum of all withdrawals
+/*
+    @Rule
+
+    @Description:
+        Sum of all withdrawals from a stream is equal or less than the original stream deposit
+
+    @Formula:
+        {
+            Σ(stream withdrawals) <= stream.deposit
+        }
+
+    @Notes:
+
+    @Link:
+
+*/
 invariant withdrawalsSolvent(uint256 streamId)
     to_mathint(getStreamRemainingBalance(streamId)) == 
         (to_mathint(getStreamDeposit(streamId)) - sumWithdrawalsPerStream[streamId])
+    // filter out createStream because it resets the deposit value
     filtered { f-> f.selector != createStream(address, uint256, address, uint256, uint256).selector }
 
 ///////////////////////////////////////////////////////////////////////////////////
 // Rules
 ///////////////////////////////////////////////////////////////////////////////////
 
-// nextStreamId up only
+/*
+    @Rule
+
+    @Description:
+        Next Stream ID only goes up
+
+    @Formula:
+        {
+            nextIdBefore = nextStreamId()
+        }
+        <
+            f(e, args)
+        >
+        {
+            nextStreamId() >= nextIdBefore
+        }
+
+    @Notes:
+
+
+    @Link:
+
+*/
 rule nextStreamIdCorrectness(method f) {
     env e;
     calldataarg args;
@@ -136,7 +275,29 @@ rule nextStreamIdCorrectness(method f) {
     assert nextStreamIdAfter >= nextStreamIdBefore;
 }
 
-// stream's remaining balance can only go down.
+/*
+    @Rule
+
+    @Description:
+        Existing stream's remaining balance can only decrease
+
+    @Formula:
+        {
+            remainingBalancebefore = stream.remainingBalance
+        }
+        <
+            f(e, args)
+        >
+        {
+            stream.remainingBalance <= remainingBalanceBefore
+        }
+
+    @Notes:
+
+
+    @Link:
+
+*/
 rule streamRemainingBalanceMonotonicity(method f, uint256 streamId) {
     env e;
     calldataarg args;
@@ -154,7 +315,29 @@ rule streamRemainingBalanceMonotonicity(method f, uint256 streamId) {
     assert remainingBalanceAfter <= remainingBalanceBefore;
 }
 
-// can't withdraw more than current balance.
+/*
+    @Rule
+
+    @Description:
+        Recipient cannot withdraw more than the current balance
+
+    @Formula:
+        {
+            amount > balanceOf(stream, msg.sender)
+        }
+        <
+            withdrawFromStream(stream, amount)
+        >
+        {
+            lastReverted
+        }
+
+    @Notes:
+
+
+    @Link:
+
+*/
 rule integrityOfWithdraw(uint256 streamId, uint256 amount) {
     env e;
 
@@ -170,25 +353,70 @@ rule integrityOfWithdraw(uint256 streamId, uint256 amount) {
     assert reverted;
 }
 
-// withdraw is always possible: if user can withdraw x, they can withdraw their whole balanceOf.
-// assuming contract has all the tokens (max uint)
-// TODO: fails due to reentrancy
+
+/*
+    @Rule
+
+    @Description:
+        Withdrawing full balance is always possible if treasury has sufficient token balance
+
+    @Formula:
+        {
+            balance = balanceOf(stream, msg.sender)
+        }
+        <
+            withdrawFromStream(stream, balance)
+        >
+        {
+            !lastReverted
+        }
+
+    @Notes:
+
+    @Link:
+
+*/
 rule fullWithdrawPossible(uint256 streamId) {
     env e;
     require getStreamExists(streamId);
     address recipient = getStreamRecipient(streamId);
+    require e.msg.sender == recipient;
+    require e.msg.sender != currentContract;
     uint256 balance = balanceOf(e, streamId, recipient);
+    require balance > 0 && balance <= getStreamRemainingBalance(streamId);
+    require _asset.balanceOf(currentContract) >= balance;
+    require to_mathint(_asset.balanceOf(e.msg.sender)) + to_mathint(balance) < max_uint256;
 
     withdrawFromStream@withrevert(e, streamId, balance);
 
     assert !lastReverted;    
 }
 
-// deltaOf() correctness 
-//     block.timeStamp <= stream.startTime => delta = 0
-//     block.timeStamp <= stream.stopTime => delta = stream.stopTime - stream.startTime
-//     block.timeStamp > stream.stopTime => delta = block.stopTime - block.startTime
-//     deltaOf() reverts if stream doesn't exist (isEntity == false)
+/*
+    @Rule
+
+    @Description:
+        deltaOf() returns a correct value
+
+    @Formula:
+        {
+            stream.stopTime > stream.startTime
+            stream.isEntity
+        }
+        <
+            delta = deltaOf(stream)
+        >
+        {
+            start >= block.timestamp => delta == 0
+            block.timestamp > start && stop >= block.timestamp => delta == block.timestamp - start
+            block.timestamp > stop => delta == stop - start
+        }
+
+    @Notes:
+
+    @Link:
+
+*/
 rule deltaOfCorrectness(uint256 streamId) {
     env e;
     require e.msg.value == 0;
@@ -205,36 +433,61 @@ rule deltaOfCorrectness(uint256 streamId) {
 }
 
 /*
-2. createStream():
-    - recipient is not 0, msg.sender or the contract.
-    - startTime >= block.timestamp
-    - duration > 0 (equivalent to stopTime - startTime > 0)
-    - deposit >= duration
-    - ratePerSecond = deposit / duration
-    - deposit is a multiple of duration (no remainders)
-*/
-function createStreamParamCheck(address recipient, uint256 start, uint256 stop, 
-    uint256 deposit, address msgSender, uint256 blockTimestamp) returns bool {
-    
-    mathint duration = stop - start;
-    if (duration <= 0) return false;
-    return recipient != 0 && recipient != msgSender && recipient != currentContract &&
-        start >= blockTimestamp && deposit >= duration && nextStreamId() < max_uint256 &&
-        deposit % duration == 0 && msgSender == getFundsAdmin();
-}
+    @Rule
 
+    @Description:
+        createStream() succeeds if parameters are valid
+
+    @Formula:
+        {
+            createStreamParamCheck(params) == true
+        }
+        <
+            createStream(params)
+        >
+        {
+            !lastReverted
+        }
+
+    @Notes:
+
+    @Link:
+
+*/
 rule createStreamCorrectness(address recipient, uint256 deposit, address tokenAddress, 
     uint256 startTime, uint256 stopTime) {
 
     env e;
     require e.msg.value == 0;
-    // require e.msg.sender == getFundsAdmin();
     bool paramCheck = createStreamParamCheck(recipient, startTime, stopTime, deposit, e.msg.sender, e.block.timestamp);
     createStream@withrevert(e, recipient, deposit, tokenAddress, startTime, stopTime);
 
     assert lastReverted <=> !paramCheck;
 }
 
+/*
+    @Rule
+
+    @Description:
+        after cancelStream() is called, stream is deleted
+
+    @Formula:
+        {
+            stream.isEntity == true
+        }
+        <
+            cancelStream(stream)
+        >
+        {
+            stream.isEntity == false
+        }
+
+    @Notes:
+
+
+    @Link:
+
+*/
 rule noStreamAfterCancel(uint256 streamId) {
     env e;
 
@@ -243,7 +496,21 @@ rule noStreamAfterCancel(uint256 streamId) {
     assert !getStreamExists(streamId);
 }
 
-// balance is not 0. do an op. if balance is 0 then stream not exists.
+/*
+    @Rule
+
+    @Description:
+        Stream's remaining balance after any operation
+
+    @Formula:
+
+
+    @Notes:
+
+
+    @Link:
+
+*/
 rule zeroRemainingBalanceDeleted(method f, uint256 streamId) {
     env e;
     calldataarg args;
@@ -258,52 +525,80 @@ rule zeroRemainingBalanceDeleted(method f, uint256 streamId) {
 
 }
 
-// 9. if recipient can't withdraw balance then erc20 balanceof(this contract) is not sufficient
-// if wihdraw failed and all params are good, then not enough tokens on the balance
-// doesn't work
-// rule failedWithdrawWhenInsolventOnly(uint256 streamId, uint256 amount){
-//     env e;
-//     calldataarg args;
+/*
+    @Rule
 
-//     require getStreamExists(streamId);
-//     require e.msg.sender == getStreamRecipient(streamId) && e.msg.sender != 0;
-//     uint256 balance = balanceOf(e, streamId, e.msg.sender);
-//     require balance < getStreamDeposit(streamId);
-//     require amount <= balance && amount > 0;
+    @Description:
+        If withdraw is available for one stream, it's also available for another stream, provided treasury balance
+        is sufficient. This is a way to check that withdrawal is available.
 
-//     uint256 tokenBalance = _asset.balanceOf(currentContract);
-//     require _status() != 2;
-//     withdrawFromStream@withrevert(e, streamId, e.msg.sender);
-//     assert lastReverted => tokenBalance < amount;
-// }
+    @Formula:
+        {
+            amount1 <= balanceOf(stream1, msg.sender)
+            amount2 <= balanceOf(stream2, msg.sender)
+            tokenBalance = token.balanceOf(currentContract)
+        }
+        <
+            withdrawFromStream(stream1, amount1) without revert
+            withdrawFromStream(stream2, amount2) at init
+        >
+        {
+            lastReverted => tokenBalance < amount2
+        }
 
-// doesn't work - reverts in token safeTransfer
-// try with same stream and same token
-// TODO fails
+
+    @Notes:
+
+    @Link:
+
+*/
 rule withdrawAvailable(uint256 stream1, uint256 stream2, uint256 amount1, uint256 amount2 ) {
     env e1;
     env e2;
     storage init = lastStorage;
+    uint256 tokenBalance = _asset.balanceOf(currentContract);
 
+    require currentContract != e1.msg.sender && currentContract != e2.msg.sender;
     withdrawFromStream(e1, stream1, amount1);
 
     require getStreamExists(stream2);
     require e2.msg.sender == getStreamRecipient(stream2) && e2.msg.sender != 0;
-    uint256 balance = balanceOf(e2, stream2, e2.msg.sender);
-    require balance < getStreamDeposit(stream2);
-    require amount2 <= balance && amount2 > 0;
+    uint256 balanceRecipient2 = balanceOf(e2, stream2, e2.msg.sender);
+    require balanceRecipient2 <= getStreamDeposit(stream2);
+    require amount2 <= balanceRecipient2 && amount2 > 0;
+    require to_mathint(amount2) + to_mathint(_asset.balanceOf(e2.msg.sender)) < max_uint256;
 
-    uint256 tokenBalance = _asset.balanceOf(currentContract);
     withdrawFromStream@withrevert(e2, stream2, amount2) at init;
 
-    assert lastReverted => tokenBalance < amount2;
+    uint256 tokenBalanceAfter2 = _asset.balanceOf(currentContract);
 
+    assert lastReverted => tokenBalance < amount2;
 }
 
+/*
+    @Rule
 
-// 1.5 after any action treasure balanceOf(token) doesn't decrease. 
-//  only on withdraw and cancel it can decrease appropriately
+    @Description:
+        Treasury balance can decrease appropriately only on withdrawFromStream and cancelStream()
 
+    @Formula:
+        {
+            treasuryBalanceBefore = token.balanceOf(currentContract)
+            recipientBalance = balanceOf(stream, msg.sender)
+            amount <= recipientBalance
+        }
+        <
+            withdrawFromStream(stream, amount) or cancelStream(stream)
+        >
+        {
+           token.balanceOf(currentContract) - treasuryBalanceBefore <= recipientBalance
+        }
+
+    @Notes:
+
+    @Link:
+
+*/
 rule treasuryBalanceCorrectness(method f, uint256 streamId) {
     env e;
 
@@ -327,5 +622,3 @@ rule treasuryBalanceCorrectness(method f, uint256 streamId) {
 
     assert treasuryBalanceBefore - treasuryBalanceAfter <= recipientBalanceBefore;
 }
-
-

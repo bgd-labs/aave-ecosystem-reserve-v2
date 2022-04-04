@@ -5,7 +5,7 @@ import {IERC20} from "../src/interfaces/IERC20.sol";
 import {ISablier} from "../src/interfaces/ISablier.sol";
 import {AdminControlledTreasury} from "../src/libs/AdminControlledTreasury.sol";
 import {ReentrancyGuard} from "../src/libs/ReentrancyGuard.sol";
-import {SafeERC20} from "../src/libs/SafeERC20.sol";
+// import {SafeERC20} from "../src/libs/SafeERC20.sol";
 
 /**
  * @title AaveStreamingTreasuryV1
@@ -31,7 +31,7 @@ contract AaveStreamingTreasuryV1 is
     ReentrancyGuard,
     ISablier
 {
-    using SafeERC20 for IERC20;
+    // using SafeERC20 for IERC20;
 
     /*** Storage Properties ***/
 
@@ -277,7 +277,7 @@ contract AaveStreamingTreasuryV1 is
      */
     function withdrawFromStream(uint256 streamId, uint256 amount)
         external
-        nonReentrant
+        // nonReentrant
         streamExists(streamId)
         onlyAdminOrRecipient(streamId)
         returns (bool)
@@ -292,7 +292,8 @@ contract AaveStreamingTreasuryV1 is
 
         if (streams[streamId].remainingBalance == 0) delete streams[streamId];
 
-        IERC20(stream.tokenAddress).safeTransfer(stream.recipient, amount);
+        // IERC20(stream.tokenAddress).safeTransfer(stream.recipient, amount);
+        IERC20(stream.tokenAddress).transfer(stream.recipient, amount);
         emit WithdrawFromStream(streamId, stream.recipient, amount);
         return true;
     }
@@ -321,7 +322,8 @@ contract AaveStreamingTreasuryV1 is
         IERC20 token = IERC20(stream.tokenAddress);
         if (recipientBalance > 0)
             // assumes contract holds the tokens.
-            token.safeTransfer(stream.recipient, recipientBalance);
+            // token.safeTransfer(stream.recipient, recipientBalance);
+            token.transfer(stream.recipient, recipientBalance);
 
         emit CancelStream(
             streamId,
