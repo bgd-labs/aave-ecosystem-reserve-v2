@@ -15,49 +15,62 @@ List of changes:
 
 ## General Properties
 
-1. (sum of all withdrawals from a stream) <= deposit. So that treasure cannot lose money.
-*invariant* `withdrawalsSolvent`
+1. *invariant* `withdrawalsSolvent`
 
-2. treasury's balanceOf(token) can decrease appropriately only on withdraw and cancel.
-*rule* `treasuryBalanceCorrectness`
+- (sum of all withdrawals from a stream) <= deposit. So that treasure cannot lose money.
 
-3. For all streams, stream.ratePerSecond >= 1 (valid state).
-*invariant* `ratePerSecond_GE_1`
+2. *rule* `treasuryBalanceCorrectness`
 
-4. can't withdraw more than current balanceOf() and original deposit.
-*rule* `integrityOfWithdraw`
+- treasury's balanceOf(token) can decrease appropriately only on withdraw and cancel.
 
-5. withdraw is possible: if user can withdraw x, they can withdraw their whole balanceOf.
+3. *invariant* `ratePerSecond_GE_1`
+
+- For all streams, stream.ratePerSecond >= 1 (valid state).
+
+4. *rule* `integrityOfWithdraw`
+
+- can't withdraw more than current balanceOf() and original deposit.
+
+5. *rule* `fullWithdrawPossible`
+
+- withdraw is possible: if user can withdraw x, they can withdraw their whole balanceOf.
    assuming contract has all the tokens (max uint)
-*rule* `fullWithdrawPossible`
 
-6. For all streams, remaining balance <= deposit 
-*invariant*  `remainingBalance_LE_deposit`
+6. *invariant*  `remainingBalance_LE_deposit`
 
-7. For all streams, balance of recipient <= deposit
-*invariant* `balanceOf_LE_deposit`
+- For all streams, remaining balance <= deposit 
 
-8. For all streams, recipient can't withdraw anything before start time is reached.
-*invariant* `cantWithdrawTooEarly`
+7. *invariant* `balanceOf_LE_deposit`
 
-9. stream.remainingBalance can only go down 
-*rule* `streamRemainingBalanceMonotonicity`
+- For all streams, balance of recipient <= deposit
 
-10. isEntity => recipient != 0 && sender != 0
-*invariant* `streamHasSenderAndRecipient`
+8. *invariant* `cantWithdrawTooEarly`
+
+- For all streams, recipient can't withdraw anything before start time is reached.
+
+9. *rule* `streamRemainingBalanceMonotonicity`
+
+- stream.remainingBalance can only go down 
+
+10. *invariant* `streamHasSenderAndRecipient`
+
+- isEntity => recipient != 0 && sender != 0
 
 
 ## Specific function properties
 
-1. deltaOf(): 
+1. *rule* `deltaOfCorrectness`
+
+- deltaOf(): 
     block.timeStamp <= stream.startTime => delta = 0
     block.timeStamp <= stream.stopTime => delta = stream.stopTime - stream.startTime
     block.timeStamp > stream.stopTime => delta = block.stopTime - block.startTime
 
     deltaOf() reverts if stream doesn't exist (isEntity == false)
-*rule* `deltaOfCorrectness`
 
-2. createStream():
+2. *rule* `createStreamCorrectness`
+
+- createStream():
     - recipient is not 0, msg.sender or the contract.
     - startTime >= block.timestamp
     - duration > 0 (equivalent to stopTime - startTime > 0)
@@ -65,20 +78,24 @@ List of changes:
     - ratePerSecond = deposit / duration
     - deposit is a multiple of duration (no remainders)
 
-*rule* `createStreamCorrectness`
+3. *rule* `noStreamAfterCancel`
 
-3. cancelStream():
+- cancelStream():
     - stream deleted after cancel
-*rule* `noStreamAfterCancel`
 
-4. stream with remainingBalance of 0 is deleted. (withdraw)
-*rule* `zeroRemainingBalanceDeleted`
+4. *rule* `zeroRemainingBalanceDeleted`
 
-5. stream ratePerSecond is only set once in createStream()
-*rule* `ratePerSecondSetOnlyOnce`
+- stream with remainingBalance of 0 is deleted. (withdraw)
 
-6. If withdraw is available for one stream, it's also available for another stream
-*rule* `withdrawAvailable`
+5. *rule* `ratePerSecondSetOnlyOnce`
 
-7. nextStreamId only goes up 
- *rule* `nextStreamIdCorrectness` [v]
+- stream ratePerSecond is only set once in createStream()
+
+6. *rule* `withdrawAvailable`
+
+- If withdraw is available for one stream, it's also available for another stream
+
+7. *rule* `nextStreamIdCorrectness`
+
+- nextStreamId only goes up 
+
