@@ -6,6 +6,7 @@ import {BaseTest} from "./base/BaseTest.sol";
 import {AaveStreamingTreasuryV1} from "../AaveStreamingTreasuryV1.sol";
 import {IAdminControlledTreasury} from "../interfaces/IAdminControlledTreasury.sol";
 import {ISablier} from "../interfaces/ISablier.sol";
+import {IERC20} from "../interfaces/IERC20.sol";
 import {console} from "./utils/console.sol";
 
 contract ValidationNewTreasury is BaseTest {
@@ -18,6 +19,26 @@ contract ValidationNewTreasury is BaseTest {
         uint256 startTime,
         uint256 stopTime
     );
+
+    event CancelStream(
+        uint256 indexed streamId,
+        address indexed sender,
+        address indexed recipient,
+        uint256 senderBalance,
+        uint256 recipientBalance
+    );
+
+    error Create_InvalidStreamId(uint256 id);
+    error Create_InvalidSender(address sender);
+    error Create_InvalidRecipient(address recipient);
+    error Create_InvalidDeposit(uint256 amount);
+    error Create_InvalidAsset(address asset);
+    error Create_InvalidStartTime(uint256 startTime);
+    error Create_InvalidStopTime(uint256 stopTime);
+    error Create_InvalidRemaining(uint256 remainingBalance);
+    error Create_InvalidRatePerSecond(uint256 rate);
+    error Create_InvalidNextStreamId(uint256 id);
+    error Cancel_WrongRecipientBalance(uint256 current, uint256 expected);
 
     IInitializableAdminUpgradeabilityProxy public constant COLLECTOR_V2_PROXY =
         IInitializableAdminUpgradeabilityProxy(
@@ -33,7 +54,7 @@ contract ValidationNewTreasury is BaseTest {
     address public constant RECIPIENT_STREAM_1 =
         0xd3B5A38aBd16e2636F1e94D1ddF0Ffb4161D5f10;
 
-    address public constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address public constant AWETH = 0x030bA81f1c18d280636F32af80b9AAd02Cf0854e;
 
     function setUp() public {
         _initNewCollectorOnProxy();
@@ -43,6 +64,10 @@ contract ValidationNewTreasury is BaseTest {
         _Creation_validate(
             AaveStreamingTreasuryV1(address(COLLECTOR_V2_PROXY))
         );
+    }
+
+    function testCancel() public {
+        _Cancel_validate(AaveStreamingTreasuryV1(address(COLLECTOR_V2_PROXY)));
     }
 
     function _initNewCollectorOnProxy() internal returns (address) {
@@ -70,7 +95,7 @@ contract ValidationNewTreasury is BaseTest {
         treasuryProxy.createStream(
             RECIPIENT_STREAM_1,
             6 ether,
-            WETH,
+            AWETH,
             block.timestamp + 10,
             (block.timestamp + 10) + 60
         );
@@ -82,7 +107,7 @@ contract ValidationNewTreasury is BaseTest {
         treasuryProxy.createStream(
             address(0),
             6 ether,
-            WETH,
+            AWETH,
             block.timestamp + 10,
             (block.timestamp + 10) + 60
         );
@@ -90,7 +115,7 @@ contract ValidationNewTreasury is BaseTest {
         treasuryProxy.createStream(
             address(treasuryProxy),
             6 ether,
-            WETH,
+            AWETH,
             block.timestamp + 10,
             (block.timestamp + 10) + 60
         );
@@ -98,7 +123,7 @@ contract ValidationNewTreasury is BaseTest {
         treasuryProxy.createStream(
             address(CONTROLLER_OF_COLLECTOR),
             6 ether,
-            WETH,
+            AWETH,
             block.timestamp + 10,
             (block.timestamp + 10) + 60
         );
@@ -108,7 +133,7 @@ contract ValidationNewTreasury is BaseTest {
         treasuryProxy.createStream(
             RECIPIENT_STREAM_1,
             0,
-            WETH,
+            AWETH,
             block.timestamp + 10,
             (block.timestamp + 10) + 60
         );
@@ -116,7 +141,7 @@ contract ValidationNewTreasury is BaseTest {
         treasuryProxy.createStream(
             RECIPIENT_STREAM_1,
             59,
-            WETH,
+            AWETH,
             block.timestamp + 10,
             (block.timestamp + 10) + 60
         );
@@ -124,7 +149,7 @@ contract ValidationNewTreasury is BaseTest {
         treasuryProxy.createStream(
             RECIPIENT_STREAM_1,
             61,
-            WETH,
+            AWETH,
             block.timestamp + 10,
             (block.timestamp + 10) + 60
         );
@@ -134,7 +159,7 @@ contract ValidationNewTreasury is BaseTest {
         treasuryProxy.createStream(
             RECIPIENT_STREAM_1,
             6 ether,
-            WETH,
+            AWETH,
             block.timestamp - 10,
             (block.timestamp + 10) + 60
         );
@@ -142,7 +167,7 @@ contract ValidationNewTreasury is BaseTest {
         treasuryProxy.createStream(
             RECIPIENT_STREAM_1,
             6 ether,
-            WETH,
+            AWETH,
             block.timestamp + 10,
             block.timestamp
         );
@@ -153,18 +178,18 @@ contract ValidationNewTreasury is BaseTest {
             address(treasuryProxy),
             RECIPIENT_STREAM_1,
             6 ether,
-            WETH,
+            AWETH,
             block.timestamp + 10,
             (block.timestamp + 10) + 60
         );
         uint256 streamId = treasuryProxy.createStream(
             RECIPIENT_STREAM_1,
             6 ether,
-            WETH,
+            AWETH,
             block.timestamp + 10,
             (block.timestamp + 10) + 60
         );
-        require(streamId == 100000, "INVALID_STREAM_ID");
+        if (streamId != 100000) revert Create_InvalidStreamId(streamId);
 
         (
             address sender,
@@ -177,17 +202,124 @@ contract ValidationNewTreasury is BaseTest {
             uint256 ratePerSecond
         ) = treasuryProxy.getStream(streamId);
 
-        require(sender == address(treasuryProxy), "INVALID_SENDER");
-        require(recipient == RECIPIENT_STREAM_1, "INVALID_RECIPIENT");
-        require(deposit == 6 ether, "INVALID_DEPOSIT");
-        require(tokenAddress == WETH, "INVALID_ASSET");
-        require(startTime == block.timestamp + 10, "INVALID_STARTTIME");
-        require(stopTime == (block.timestamp + 10) + 60, "INVALID_STOPTIME");
-        require(remainingBalance == 6 ether, "INVALID_REMAINING_BALANCE");
-        require(ratePerSecond == 6 ether / 60, "INVALID_RATE_PER_SECOND");
-        require(
-            treasuryProxy.nextStreamId() == streamId + 1,
-            "INVALID_NEXT_STREAM_ID"
+        if (sender != address(treasuryProxy))
+            revert Create_InvalidSender(sender);
+        if (recipient != RECIPIENT_STREAM_1)
+            revert Create_InvalidRecipient(recipient);
+        if (deposit != 6 ether) revert Create_InvalidDeposit(deposit);
+        if (tokenAddress != AWETH) revert Create_InvalidAsset(tokenAddress);
+        if (startTime != (block.timestamp + 10))
+            revert Create_InvalidStartTime(startTime);
+        if (stopTime != ((block.timestamp + 10) + 60))
+            revert Create_InvalidStopTime(stopTime);
+        if (remainingBalance != 6 ether)
+            revert Create_InvalidRemaining(remainingBalance);
+        if (ratePerSecond != (6 ether / 60))
+            revert Create_InvalidRatePerSecond(ratePerSecond);
+        if (treasuryProxy.nextStreamId() != (streamId + 1))
+            revert Create_InvalidNextStreamId(treasuryProxy.nextStreamId());
+
+        vm.stopPrank();
+    }
+
+    function _Cancel_validate(AaveStreamingTreasuryV1 treasuryProxy) internal {
+        // Accounts not being funds admin can't create a stream
+        vm.startPrank(address(1));
+        vm.expectRevert(bytes("stream does not exist"));
+        treasuryProxy.cancelStream(1);
+        vm.stopPrank();
+
+        vm.startPrank(CONTROLLER_OF_COLLECTOR);
+        uint256 streamId = treasuryProxy.createStream(
+            RECIPIENT_STREAM_1,
+            6 ether,
+            AWETH,
+            block.timestamp + 10,
+            (block.timestamp + 10) + 60
         );
+        vm.stopPrank();
+
+        vm.startPrank(address(1));
+        vm.expectRevert(
+            bytes(
+                "caller is not the funds admin or the recipient of the stream"
+            )
+        );
+        treasuryProxy.cancelStream(streamId);
+        vm.stopPrank();
+
+        // Admin can cancel the stream
+        vm.startPrank(CONTROLLER_OF_COLLECTOR);
+
+        uint256 balanceRecipientBefore = IERC20(AWETH).balanceOf(
+            RECIPIENT_STREAM_1
+        );
+
+        vm.warp(block.timestamp + 20);
+        vm.expectEmit(true, true, true, true);
+        emit CancelStream(
+            streamId,
+            address(treasuryProxy),
+            RECIPIENT_STREAM_1,
+            (6 ether / 6) * 5,
+            6 ether / 6
+        );
+        treasuryProxy.cancelStream(streamId);
+
+        uint256 balanceRecipientAfter = IERC20(AWETH).balanceOf(
+            RECIPIENT_STREAM_1
+        );
+
+        vm.expectRevert(bytes("stream does not exist"));
+        treasuryProxy.getStream(streamId);
+
+        if (balanceRecipientAfter != (balanceRecipientBefore + (6 ether / 6)))
+            revert Cancel_WrongRecipientBalance(
+                balanceRecipientAfter,
+                balanceRecipientBefore + (6 ether / 6)
+            );
+
+        vm.stopPrank();
+
+        // Transfer out of all aWETH, to avoid accounting for interest
+        vm.startPrank(RECIPIENT_STREAM_1);
+        IERC20(AWETH).transfer(
+            address(1),
+            IERC20(AWETH).balanceOf(RECIPIENT_STREAM_1)
+        );
+        vm.stopPrank();
+
+        vm.startPrank(CONTROLLER_OF_COLLECTOR);
+        streamId = treasuryProxy.createStream(
+            RECIPIENT_STREAM_1,
+            6 ether,
+            AWETH,
+            block.timestamp + 10,
+            (block.timestamp + 10) + 60
+        );
+        vm.stopPrank();
+
+        // Recipient can cancel the stream
+        vm.startPrank(RECIPIENT_STREAM_1);
+        balanceRecipientBefore = IERC20(AWETH).balanceOf(RECIPIENT_STREAM_1);
+        vm.warp(block.timestamp + 10);
+        vm.expectEmit(true, true, true, true);
+        emit CancelStream(
+            streamId,
+            address(treasuryProxy),
+            RECIPIENT_STREAM_1,
+            6 ether,
+            0
+        );
+        treasuryProxy.cancelStream(streamId);
+
+        balanceRecipientAfter = IERC20(AWETH).balanceOf(RECIPIENT_STREAM_1);
+        if (balanceRecipientBefore != balanceRecipientAfter)
+            revert Cancel_WrongRecipientBalance(
+                balanceRecipientAfter,
+                balanceRecipientBefore
+            );
+
+        vm.stopPrank();
     }
 }
