@@ -3,7 +3,7 @@ pragma solidity 0.8.11;
 
 import {IERC20} from "./interfaces/IERC20.sol";
 import {ISablier} from "./interfaces/ISablier.sol";
-import {AdminControlledTreasury} from "./libs/AdminControlledTreasury.sol";
+import {AdminControlledTreasury} from "./AdminControlledTreasury.sol";
 import {ReentrancyGuard} from "./libs/ReentrancyGuard.sol";
 import {SafeERC20} from "./libs/SafeERC20.sol";
 
