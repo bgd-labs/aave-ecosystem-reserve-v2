@@ -28,6 +28,12 @@ contract ValidationNewTreasury is BaseTest {
         uint256 recipientBalance
     );
 
+    event WithdrawFromStream(
+        uint256 indexed streamId,
+        address indexed recipient,
+        uint256 amount
+    );
+
     error Create_InvalidStreamId(uint256 id);
     error Create_InvalidSender(address sender);
     error Create_InvalidRecipient(address recipient);
@@ -39,6 +45,16 @@ contract ValidationNewTreasury is BaseTest {
     error Create_InvalidRatePerSecond(uint256 rate);
     error Create_InvalidNextStreamId(uint256 id);
     error Cancel_WrongRecipientBalance(uint256 current, uint256 expected);
+    error Withdraw_WrongRecipientBalance(uint256 current, uint256 expected);
+    error Withdraw_WrongRecipientBalanceStream(
+        uint256 current,
+        uint256 expected
+    );
+    error Withdraw_WrongTreasuryBalance(uint256 current, uint256 expected);
+    error Withdraw_WrongTreasuryBalanceStream(
+        uint256 current,
+        uint256 expected
+    );
 
     IInitializableAdminUpgradeabilityProxy public constant COLLECTOR_V2_PROXY =
         IInitializableAdminUpgradeabilityProxy(
@@ -60,14 +76,22 @@ contract ValidationNewTreasury is BaseTest {
         _initNewCollectorOnProxy();
     }
 
-    function testCreation() public {
+    function test1Creation() public {
         _Creation_validate(
-            AaveStreamingTreasuryV1(address(COLLECTOR_V2_PROXY))
+            AaveStreamingTreasuryV1(payable(address(COLLECTOR_V2_PROXY)))
         );
     }
 
-    function testCancel() public {
-        _Cancel_validate(AaveStreamingTreasuryV1(address(COLLECTOR_V2_PROXY)));
+    function test2Cancel() public {
+        _Cancel_validate(
+            AaveStreamingTreasuryV1(payable(address(COLLECTOR_V2_PROXY)))
+        );
+    }
+
+    function test3Withdraw() public {
+        _Withdraw_validate(
+            AaveStreamingTreasuryV1(payable(address(COLLECTOR_V2_PROXY)))
+        );
     }
 
     function _initNewCollectorOnProxy() internal returns (address) {
@@ -321,5 +345,207 @@ contract ValidationNewTreasury is BaseTest {
             );
 
         vm.stopPrank();
+    }
+
+    function _Withdraw_validate(AaveStreamingTreasuryV1 treasuryProxy)
+        internal
+    {
+        // Accounts not being funds admin can't create a stream
+        vm.startPrank(address(1));
+        vm.expectRevert(bytes("stream does not exist"));
+        treasuryProxy.cancelStream(1);
+        vm.stopPrank();
+
+        vm.startPrank(CONTROLLER_OF_COLLECTOR);
+        uint256 streamId = treasuryProxy.createStream(
+            RECIPIENT_STREAM_1,
+            6 ether,
+            AWETH,
+            block.timestamp + 10,
+            (block.timestamp + 10) + 60
+        );
+        vm.stopPrank();
+
+        vm.startPrank(address(1));
+        vm.expectRevert(
+            bytes(
+                "caller is not the funds admin or the recipient of the stream"
+            )
+        );
+        treasuryProxy.withdrawFromStream(streamId, 0);
+        vm.stopPrank();
+
+        vm.startPrank(CONTROLLER_OF_COLLECTOR);
+        vm.expectRevert(bytes("amount is zero"));
+        treasuryProxy.withdrawFromStream(streamId, 0);
+
+        vm.warp(block.timestamp + 20);
+        vm.expectRevert(bytes("amount exceeds the available balance"));
+        treasuryProxy.withdrawFromStream(streamId, 2 ether);
+
+        uint256 balanceRecipientBefore = IERC20(AWETH).balanceOf(
+            RECIPIENT_STREAM_1
+        );
+        uint256 balanceRecipientStreamBefore = treasuryProxy.balanceOf(
+            streamId,
+            RECIPIENT_STREAM_1
+        );
+        uint256 balanceTreasuryBefore = IERC20(AWETH).balanceOf(
+            address(treasuryProxy)
+        );
+        uint256 balanceTreasuryStreamBefore = treasuryProxy.balanceOf(
+            streamId,
+            address(treasuryProxy)
+        );
+
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawFromStream(streamId, RECIPIENT_STREAM_1, 1 ether);
+        treasuryProxy.withdrawFromStream(streamId, 1 ether);
+
+        uint256 balanceRecipientAfter = IERC20(AWETH).balanceOf(
+            RECIPIENT_STREAM_1
+        );
+        uint256 balanceRecipientStreamAfter = treasuryProxy.balanceOf(
+            streamId,
+            RECIPIENT_STREAM_1
+        );
+        uint256 balanceTreasuryAfter = IERC20(AWETH).balanceOf(
+            address(treasuryProxy)
+        );
+        uint256 balanceTreasuryStreamAfter = treasuryProxy.balanceOf(
+            streamId,
+            address(treasuryProxy)
+        );
+
+        if (
+            !(
+                _almostEqual(
+                    balanceRecipientAfter,
+                    balanceRecipientBefore + 1 ether
+                )
+            )
+        ) {
+            revert Withdraw_WrongRecipientBalance(
+                balanceRecipientAfter,
+                balanceRecipientBefore + 1 ether
+            );
+        }
+
+        if (
+            !(
+                _almostEqual(
+                    balanceRecipientStreamAfter,
+                    balanceRecipientStreamBefore - 1 ether
+                )
+            )
+        ) {
+            revert Withdraw_WrongRecipientBalanceStream(
+                balanceRecipientStreamAfter,
+                balanceRecipientStreamBefore - 1 ether
+            );
+        }
+
+        if (
+            !(
+                _almostEqual(
+                    balanceTreasuryAfter,
+                    balanceTreasuryBefore - 1 ether
+                )
+            )
+        ) {
+            revert Withdraw_WrongTreasuryBalance(
+                balanceTreasuryAfter,
+                balanceTreasuryBefore - 1 ether
+            );
+        }
+
+        if (
+            !(
+                _almostEqual(
+                    balanceTreasuryStreamAfter,
+                    balanceTreasuryStreamBefore
+                )
+            )
+        ) {
+            revert Withdraw_WrongTreasuryBalanceStream(
+                balanceTreasuryStreamAfter,
+                balanceTreasuryStreamBefore
+            );
+        }
+
+        vm.warp(block.timestamp + 70);
+
+        vm.stopPrank();
+
+        // Transfer out of all aWETH, to avoid accounting for interest
+        vm.startPrank(RECIPIENT_STREAM_1);
+        IERC20(AWETH).transfer(
+            address(1),
+            IERC20(AWETH).balanceOf(RECIPIENT_STREAM_1)
+        );
+
+        balanceRecipientBefore = IERC20(AWETH).balanceOf(RECIPIENT_STREAM_1);
+        balanceRecipientStreamBefore = treasuryProxy.balanceOf(
+            streamId,
+            RECIPIENT_STREAM_1
+        );
+        balanceTreasuryBefore = IERC20(AWETH).balanceOf(address(treasuryProxy));
+        balanceTreasuryStreamBefore = treasuryProxy.balanceOf(
+            streamId,
+            address(treasuryProxy)
+        );
+
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawFromStream(streamId, RECIPIENT_STREAM_1, 5 ether);
+        treasuryProxy.withdrawFromStream(streamId, 5 ether);
+
+        balanceRecipientAfter = IERC20(AWETH).balanceOf(RECIPIENT_STREAM_1);
+        balanceTreasuryAfter = IERC20(AWETH).balanceOf(address(treasuryProxy));
+
+        if (
+            !(
+                _almostEqual(
+                    balanceRecipientAfter,
+                    balanceRecipientBefore + 5 ether
+                )
+            )
+        ) {
+            revert Withdraw_WrongRecipientBalance(
+                balanceRecipientAfter,
+                balanceRecipientBefore + 5 ether
+            );
+        }
+
+        if (
+            !(
+                _almostEqual(
+                    balanceTreasuryAfter,
+                    balanceTreasuryBefore - 5 ether
+                )
+            )
+        ) {
+            revert Withdraw_WrongTreasuryBalance(
+                balanceTreasuryAfter,
+                balanceTreasuryBefore - 5 ether
+            );
+        }
+
+        // We check the stream was deleted, just by calling a view function requiring existence
+        vm.expectRevert("stream does not exist");
+        balanceRecipientStreamAfter = treasuryProxy.balanceOf(
+            streamId,
+            RECIPIENT_STREAM_1
+        );
+
+        vm.stopPrank();
+    }
+
+    /// @dev To contemplate +1/-1 precision issues when rounding, mainly on aTokens
+    function _almostEqual(uint256 a, uint256 b) internal pure returns (bool) {
+        if (b == 0) {
+            return (a == b) || (a == (b + 1));
+        } else {
+            return (a == b) || (a == (b + 1)) || (a == (b - 1));
+        }
     }
 }

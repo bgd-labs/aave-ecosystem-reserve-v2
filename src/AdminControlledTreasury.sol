@@ -64,4 +64,7 @@ abstract contract AdminControlledTreasury is VersionedInitializable {
         _fundsAdmin = admin;
         emit NewFundsAdmin(admin);
     }
+
+    /// @dev needed in order to receive ETH from the Aave v1 treasury
+    receive() external payable {}
 }
