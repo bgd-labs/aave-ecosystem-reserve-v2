@@ -4,8 +4,9 @@ pragma solidity 0.8.11;
 import {IInitializableAdminUpgradeabilityProxy} from "../interfaces/IInitializableAdminUpgradeabilityProxy.sol";
 import {BaseTest} from "./base/BaseTest.sol";
 import {AaveStreamingTreasuryV1} from "../AaveStreamingTreasuryV1.sol";
+import {ControllerOfCollectorForStreaming} from "../ControllerOfCollectorForStreaming.sol";
 import {IAdminControlledTreasury} from "../interfaces/IAdminControlledTreasury.sol";
-import {ISablier} from "../interfaces/ISablier.sol";
+import {IStreamable} from "../interfaces/IStreamable.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
 import {console} from "./utils/console.sol";
 
@@ -64,8 +65,7 @@ contract ValidationNewTreasury is BaseTest {
     address public constant GOV_SHORT_EXECUTOR =
         0xEE56e2B3D491590B5b31738cC34d5232F378a8D5;
 
-    address public constant CONTROLLER_OF_COLLECTOR =
-        0x7AB1e5c406F36FE20Ce7eBa528E182903CA8bFC7;
+    ControllerOfCollectorForStreaming public controllerOfCollector;
 
     address public constant RECIPIENT_STREAM_1 =
         0xd3B5A38aBd16e2636F1e94D1ddF0Ffb4161D5f10;
@@ -97,12 +97,20 @@ contract ValidationNewTreasury is BaseTest {
     function _initNewCollectorOnProxy() internal returns (address) {
         AaveStreamingTreasuryV1 treasuryImpl = new AaveStreamingTreasuryV1();
 
+        controllerOfCollector = new ControllerOfCollectorForStreaming(
+            GOV_SHORT_EXECUTOR,
+            address(COLLECTOR_V2_PROXY)
+        );
+
         vm.deal(GOV_SHORT_EXECUTOR, 1 ether);
         vm.startPrank(GOV_SHORT_EXECUTOR);
 
         COLLECTOR_V2_PROXY.upgradeToAndCall(
             address(treasuryImpl),
-            abi.encodeWithSelector(IAdminControlledTreasury.initialize.selector)
+            abi.encodeWithSelector(
+                IStreamable.initialize.selector,
+                address(controllerOfCollector)
+            )
         );
 
         vm.stopPrank();
@@ -113,6 +121,8 @@ contract ValidationNewTreasury is BaseTest {
     function _Creation_validate(AaveStreamingTreasuryV1 treasuryProxy)
         internal
     {
+        address fundsAdmin = address(controllerOfCollector);
+
         // Accounts not being funds admin can't create a stream
         vm.startPrank(address(1));
         vm.expectRevert(bytes("ONLY_BY_FUNDS_ADMIN"));
@@ -126,7 +136,7 @@ contract ValidationNewTreasury is BaseTest {
         vm.stopPrank();
 
         // Recipients can'be be the 0x0, the collector or the controller of the collector
-        vm.startPrank(CONTROLLER_OF_COLLECTOR);
+        vm.startPrank(fundsAdmin);
         vm.expectRevert(bytes("stream to the zero address"));
         treasuryProxy.createStream(
             address(0),
@@ -145,7 +155,7 @@ contract ValidationNewTreasury is BaseTest {
         );
         vm.expectRevert(bytes("stream to the caller"));
         treasuryProxy.createStream(
-            address(CONTROLLER_OF_COLLECTOR),
+            address(fundsAdmin),
             6 ether,
             AWETH,
             block.timestamp + 10,
@@ -247,13 +257,15 @@ contract ValidationNewTreasury is BaseTest {
     }
 
     function _Cancel_validate(AaveStreamingTreasuryV1 treasuryProxy) internal {
+        address fundsAdmin = address(controllerOfCollector);
+
         // Accounts not being funds admin can't create a stream
         vm.startPrank(address(1));
         vm.expectRevert(bytes("stream does not exist"));
         treasuryProxy.cancelStream(1);
         vm.stopPrank();
 
-        vm.startPrank(CONTROLLER_OF_COLLECTOR);
+        vm.startPrank(fundsAdmin);
         uint256 streamId = treasuryProxy.createStream(
             RECIPIENT_STREAM_1,
             6 ether,
@@ -273,7 +285,7 @@ contract ValidationNewTreasury is BaseTest {
         vm.stopPrank();
 
         // Admin can cancel the stream
-        vm.startPrank(CONTROLLER_OF_COLLECTOR);
+        vm.startPrank(fundsAdmin);
 
         uint256 balanceRecipientBefore = IERC20(AWETH).balanceOf(
             RECIPIENT_STREAM_1
@@ -313,7 +325,7 @@ contract ValidationNewTreasury is BaseTest {
         );
         vm.stopPrank();
 
-        vm.startPrank(CONTROLLER_OF_COLLECTOR);
+        vm.startPrank(fundsAdmin);
         streamId = treasuryProxy.createStream(
             RECIPIENT_STREAM_1,
             6 ether,
@@ -350,13 +362,15 @@ contract ValidationNewTreasury is BaseTest {
     function _Withdraw_validate(AaveStreamingTreasuryV1 treasuryProxy)
         internal
     {
+        address fundsAdmin = address(controllerOfCollector);
+
         // Accounts not being funds admin can't create a stream
         vm.startPrank(address(1));
         vm.expectRevert(bytes("stream does not exist"));
         treasuryProxy.cancelStream(1);
         vm.stopPrank();
 
-        vm.startPrank(CONTROLLER_OF_COLLECTOR);
+        vm.startPrank(fundsAdmin);
         uint256 streamId = treasuryProxy.createStream(
             RECIPIENT_STREAM_1,
             6 ether,
@@ -375,7 +389,7 @@ contract ValidationNewTreasury is BaseTest {
         treasuryProxy.withdrawFromStream(streamId, 0);
         vm.stopPrank();
 
-        vm.startPrank(CONTROLLER_OF_COLLECTOR);
+        vm.startPrank(fundsAdmin);
         vm.expectRevert(bytes("amount is zero"));
         treasuryProxy.withdrawFromStream(streamId, 0);
 

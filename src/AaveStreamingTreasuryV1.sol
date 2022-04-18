@@ -2,7 +2,7 @@
 pragma solidity 0.8.11;
 
 import {IERC20} from "./interfaces/IERC20.sol";
-import {ISablier} from "./interfaces/ISablier.sol";
+import {IStreamable} from "./interfaces/IStreamable.sol";
 import {AdminControlledTreasury} from "./AdminControlledTreasury.sol";
 import {ReentrancyGuard} from "./libs/ReentrancyGuard.sol";
 import {SafeERC20} from "./libs/SafeERC20.sol";
@@ -22,7 +22,7 @@ import {SafeERC20} from "./libs/SafeERC20.sol";
 contract AaveStreamingTreasuryV1 is
     AdminControlledTreasury,
     ReentrancyGuard,
-    ISablier
+    IStreamable
 {
     using SafeERC20 for IERC20;
 
@@ -62,8 +62,9 @@ contract AaveStreamingTreasuryV1 is
 
     /*** Contract Logic Starts Here */
 
-    function initialize() external initializer {
+    function initialize(address fundsAdmin) external initializer {
         nextStreamId = 100000;
+        _setFundsAdmin(fundsAdmin);
     }
 
     /*** View Functions ***/

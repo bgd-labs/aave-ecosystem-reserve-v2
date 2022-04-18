@@ -1,11 +1,7 @@
-// SPDX-License-Identifier: GPL-3.0
-pragma solidity >=0.5.17;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.11;
 
-/**
- * @title ISablier
- * @author Sablier
- */
-interface ISablier {
+interface IStreamable {
     struct Stream {
         uint256 deposit;
         uint256 ratePerSecond;
@@ -18,9 +14,6 @@ interface ISablier {
         bool isEntity;
     }
 
-    /**
-     * @notice Emits when a stream is successfully created.
-     */
     event CreateStream(
         uint256 indexed streamId,
         address indexed sender,
@@ -31,18 +24,12 @@ interface ISablier {
         uint256 stopTime
     );
 
-    /**
-     * @notice Emits when the recipient of a stream withdraws a portion or all their pro rata share of the stream.
-     */
     event WithdrawFromStream(
         uint256 indexed streamId,
         address indexed recipient,
         uint256 amount
     );
 
-    /**
-     * @notice Emits when a stream is successfully cancelled and tokens are transferred back on a pro rata basis.
-     */
     event CancelStream(
         uint256 indexed streamId,
         address indexed sender,
@@ -83,4 +70,6 @@ interface ISablier {
         returns (bool);
 
     function cancelStream(uint256 streamId) external returns (bool);
+
+    function initialize(address fundsAdmin) external;
 }
