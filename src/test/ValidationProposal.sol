@@ -4,11 +4,19 @@ pragma solidity 0.8.11;
 import {BaseTest} from "./base/BaseTest.sol";
 import {PayloadAaveBGD} from "../PayloadAaveBGD.sol";
 import {AaveGovHelpers, IAaveGov} from "./utils/AaveGovHelpers.sol";
+import {ApproximateMath} from "./utils/ApproximateMath.sol";
+import {IERC20} from "../interfaces/IERC20.sol";
 import {console} from "./utils/console.sol";
 
 contract ValidationProposal is BaseTest {
     address internal constant AAVE_WHALE =
         0x25F2226B597E8F9514B3F68F00f494cF4f286491;
+
+    error InvalidTransferOfUpfront(
+        IERC20 asset,
+        uint256 expectedBalance,
+        uint256 currentBalance
+    );
 
     function setUp() public {}
 
@@ -45,5 +53,73 @@ contract ValidationProposal is BaseTest {
         );
 
         AaveGovHelpers._passVote(vm, AAVE_WHALE, proposalId);
+
+        if (
+            !ApproximateMath._almostEqual(
+                IERC20(PayloadAaveBGD(payload).AUSDC()).balanceOf(
+                    PayloadAaveBGD(payload).BGD_RECIPIENT()
+                ),
+                PayloadAaveBGD(payload).AUSDC_UPFRONT_AMOUNT()
+            )
+        ) {
+            revert InvalidTransferOfUpfront(
+                PayloadAaveBGD(payload).AUSDC(),
+                PayloadAaveBGD(payload).AUSDC_UPFRONT_AMOUNT(),
+                IERC20(PayloadAaveBGD(payload).AUSDC()).balanceOf(
+                    PayloadAaveBGD(payload).BGD_RECIPIENT()
+                )
+            );
+        }
+
+        if (
+            !ApproximateMath._almostEqual(
+                IERC20(PayloadAaveBGD(payload).ADAI()).balanceOf(
+                    PayloadAaveBGD(payload).BGD_RECIPIENT()
+                ),
+                PayloadAaveBGD(payload).ADAI_UPFRONT_AMOUNT()
+            )
+        ) {
+            revert InvalidTransferOfUpfront(
+                PayloadAaveBGD(payload).ADAI(),
+                PayloadAaveBGD(payload).ADAI_UPFRONT_AMOUNT(),
+                IERC20(PayloadAaveBGD(payload).ADAI()).balanceOf(
+                    PayloadAaveBGD(payload).BGD_RECIPIENT()
+                )
+            );
+        }
+
+        if (
+            !ApproximateMath._almostEqual(
+                IERC20(PayloadAaveBGD(payload).AUSDT()).balanceOf(
+                    PayloadAaveBGD(payload).BGD_RECIPIENT()
+                ),
+                PayloadAaveBGD(payload).AUSDT_UPFRONT_AMOUNT()
+            )
+        ) {
+            revert InvalidTransferOfUpfront(
+                PayloadAaveBGD(payload).AUSDT(),
+                PayloadAaveBGD(payload).AUSDT_UPFRONT_AMOUNT(),
+                IERC20(PayloadAaveBGD(payload).AUSDT()).balanceOf(
+                    PayloadAaveBGD(payload).BGD_RECIPIENT()
+                )
+            );
+        }
+
+        if (
+            !ApproximateMath._almostEqual(
+                IERC20(PayloadAaveBGD(payload).AAVE()).balanceOf(
+                    PayloadAaveBGD(payload).BGD_RECIPIENT()
+                ),
+                PayloadAaveBGD(payload).AAVE_UPFRONT_AMOUNT()
+            )
+        ) {
+            revert InvalidTransferOfUpfront(
+                PayloadAaveBGD(payload).AAVE(),
+                PayloadAaveBGD(payload).AAVE_UPFRONT_AMOUNT(),
+                IERC20(PayloadAaveBGD(payload).AAVE()).balanceOf(
+                    PayloadAaveBGD(payload).BGD_RECIPIENT()
+                )
+            );
+        }
     }
 }

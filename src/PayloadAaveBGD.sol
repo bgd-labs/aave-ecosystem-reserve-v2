@@ -32,14 +32,14 @@ contract PayloadAaveBGD {
     IERC20 public constant AAVE =
         IERC20(0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9);
 
-    uint256 internal constant AUSDC_UPFRONT_AMOUNT = 1200000 * 1e6; // 1'200'000 aUSDC
-    uint256 internal constant ADAI_UPFRONT_AMOUNT = 1000000 ether; // 1'000'000 aDAI
-    uint256 internal constant AUSDT_UPFRONT_AMOUNT = 1000000 * 1e6; // 1'000'000 aUSDT
-    uint256 internal constant AAVE_UPFRONT_AMOUNT = 8400 ether; // 8'400 AAVE
+    uint256 public constant AUSDC_UPFRONT_AMOUNT = 1200000 * 1e6; // 1'200'000 aUSDC
+    uint256 public constant ADAI_UPFRONT_AMOUNT = 1000000 ether; // 1'000'000 aDAI
+    uint256 public constant AUSDT_UPFRONT_AMOUNT = 1000000 * 1e6; // 1'000'000 aUSDT
+    uint256 public constant AAVE_UPFRONT_AMOUNT = 8400 ether; // 8'400 AAVE
 
-    uint256 internal constant AUSDC_STREAM_AMOUNT = 4800008160000; // ~4'800'000 aUSDC. A bit more for the streaming requirements
-    uint256 internal constant AAVE_STREAM_AMOUNT = 12600000000000074880000; // ~12'600 AAVE. A bit more for the streaming requirements
-    uint256 internal constant STREAMS_DURATION = 450 days; // 15 months of 30 days
+    uint256 public constant AUSDC_STREAM_AMOUNT = 4800008160000; // ~4'800'000 aUSDC. A bit more for the streaming requirements
+    uint256 public constant AAVE_STREAM_AMOUNT = 12600000000000074880000; // ~12'600 AAVE. A bit more for the streaming requirements
+    uint256 public constant STREAMS_DURATION = 450 days; // 15 months of 30 days
 
     /// TODO CHANGE!!!!
     address public constant BGD_RECIPIENT =

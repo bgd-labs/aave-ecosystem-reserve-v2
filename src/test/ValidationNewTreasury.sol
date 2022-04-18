@@ -5,6 +5,7 @@ import {IInitializableAdminUpgradeabilityProxy} from "../interfaces/IInitializab
 import {BaseTest} from "./base/BaseTest.sol";
 import {AaveStreamingTreasuryV1} from "../AaveStreamingTreasuryV1.sol";
 import {ControllerOfCollectorForStreaming} from "../ControllerOfCollectorForStreaming.sol";
+import {ApproximateMath} from "./utils/ApproximateMath.sol";
 import {IAdminControlledTreasury} from "../interfaces/IAdminControlledTreasury.sol";
 import {IStreamable} from "../interfaces/IStreamable.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
@@ -433,7 +434,7 @@ contract ValidationNewTreasury is BaseTest {
 
         if (
             !(
-                _almostEqual(
+                ApproximateMath._almostEqual(
                     balanceRecipientAfter,
                     balanceRecipientBefore + 1 ether
                 )
@@ -447,7 +448,7 @@ contract ValidationNewTreasury is BaseTest {
 
         if (
             !(
-                _almostEqual(
+                ApproximateMath._almostEqual(
                     balanceRecipientStreamAfter,
                     balanceRecipientStreamBefore - 1 ether
                 )
@@ -461,7 +462,7 @@ contract ValidationNewTreasury is BaseTest {
 
         if (
             !(
-                _almostEqual(
+                ApproximateMath._almostEqual(
                     balanceTreasuryAfter,
                     balanceTreasuryBefore - 1 ether
                 )
@@ -475,7 +476,7 @@ contract ValidationNewTreasury is BaseTest {
 
         if (
             !(
-                _almostEqual(
+                ApproximateMath._almostEqual(
                     balanceTreasuryStreamAfter,
                     balanceTreasuryStreamBefore
                 )
@@ -518,7 +519,7 @@ contract ValidationNewTreasury is BaseTest {
 
         if (
             !(
-                _almostEqual(
+                ApproximateMath._almostEqual(
                     balanceRecipientAfter,
                     balanceRecipientBefore + 5 ether
                 )
@@ -532,7 +533,7 @@ contract ValidationNewTreasury is BaseTest {
 
         if (
             !(
-                _almostEqual(
+                ApproximateMath._almostEqual(
                     balanceTreasuryAfter,
                     balanceTreasuryBefore - 5 ether
                 )
@@ -552,14 +553,5 @@ contract ValidationNewTreasury is BaseTest {
         );
 
         vm.stopPrank();
-    }
-
-    /// @dev To contemplate +1/-1 precision issues when rounding, mainly on aTokens
-    function _almostEqual(uint256 a, uint256 b) internal pure returns (bool) {
-        if (b == 0) {
-            return (a == b) || (a == (b + 1));
-        } else {
-            return (a == b) || (a == (b + 1)) || (a == (b - 1));
-        }
     }
 }
