@@ -1,6 +1,6 @@
 # Aave streaming treasury
 
-This repository contains an implementation to update the Aave treasury proxy located [here](https://etherscan.io/address/0x464c71f6c2f760dda6093dcb91c24c39e5d6e18c), in order to allow native streaming streaming of funds from it.
+This repository contains an implementation to update the Aave treasury proxy located [here](https://etherscan.io/address/0x464c71f6c2f760dda6093dcb91c24c39e5d6e18c), in order to allow native streaming of funds from it.
 The rationale of this change is that, as more and more external parties like BGD engage with the Aave DAO, and the compensation is usually via stream of funds, it is not optimal to send the whole capital of the stream upfront to a system like the current Sablier v1 as:
 
 - The current funds would be sent there as growing-balance aTokens (unless wrapped), which Sablier doesn't support.
