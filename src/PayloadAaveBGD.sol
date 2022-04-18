@@ -37,8 +37,8 @@ contract PayloadAaveBGD {
     uint256 internal constant AUSDT_UPFRONT_AMOUNT = 1000000 * 1e6; // 1'000'000 aUSDT
     uint256 internal constant AAVE_UPFRONT_AMOUNT = 8400 ether; // 8'400 AAVE
 
-    uint256 internal constant AUSDC_STREAM_AMOUNT = 4800000 * 1e6; // 4'800'000 aUSDC
-    uint256 internal constant AAVE_STREAM_AMOUNT = 12600 ether; // 12'600 AAVE
+    uint256 internal constant AUSDC_STREAM_AMOUNT = 4800008160000; // ~4'800'000 aUSDC. A bit more for the streaming requirements
+    uint256 internal constant AAVE_STREAM_AMOUNT = 12600000000000074880000; // ~12'600 AAVE. A bit more for the streaming requirements
     uint256 internal constant STREAMS_DURATION = 450 days; // 15 months of 30 days
 
     /// TODO CHANGE!!!!
@@ -76,7 +76,7 @@ contract PayloadAaveBGD {
                 address(aaveControllerOfCollector)
             )
         );
-        // // We initialise the implementation, for security
+        // We initialise the implementation, for security
         treasuryImpl.initialize(address(controllerOfCollector));
 
         // Transfer of the upfront payment, 40% of the total
