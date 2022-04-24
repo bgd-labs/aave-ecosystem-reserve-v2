@@ -46,15 +46,9 @@ contract PayloadAaveBGD {
         address(0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB);
 
     function execute() external {
-        // We deploy 2 controller of collectors: 1 for the treasury of the protocol, another for the AAVE treasury
-        // This is necessary as each one of them points to a trasury via immutable
+        // We deploy only 1 new controller of collector, to use in common for the treasuries of the protocol and AAVE
         ControllerOfCollectorForStreaming controllerOfCollector = new ControllerOfCollectorForStreaming(
-                GOV_SHORT_EXECUTOR,
-                address(COLLECTOR_V2_PROXY)
-            );
-        ControllerOfCollectorForStreaming aaveControllerOfCollector = new ControllerOfCollectorForStreaming(
-                GOV_SHORT_EXECUTOR,
-                address(AAVE_TOKEN_COLLECTOR_PROXY)
+                GOV_SHORT_EXECUTOR
             );
 
         // New implementation of the treasury, with streaming capabilities
@@ -73,7 +67,7 @@ contract PayloadAaveBGD {
             address(treasuryImpl),
             abi.encodeWithSelector(
                 IStreamable.initialize.selector,
-                address(aaveControllerOfCollector)
+                address(controllerOfCollector)
             )
         );
         // We initialise the implementation, for security
@@ -81,21 +75,25 @@ contract PayloadAaveBGD {
 
         // Transfer of the upfront payment, 40% of the total
         controllerOfCollector.transfer(
+            address(COLLECTOR_V2_PROXY),
             AUSDC,
             BGD_RECIPIENT,
             AUSDC_UPFRONT_AMOUNT
         );
         controllerOfCollector.transfer(
+            address(COLLECTOR_V2_PROXY),
             ADAI,
             BGD_RECIPIENT,
             ADAI_UPFRONT_AMOUNT
         );
         controllerOfCollector.transfer(
+            address(COLLECTOR_V2_PROXY),
             AUSDT,
             BGD_RECIPIENT,
             AUSDT_UPFRONT_AMOUNT
         );
-        aaveControllerOfCollector.transfer(
+        controllerOfCollector.transfer(
+            address(AAVE_TOKEN_COLLECTOR_PROXY),
             AAVE,
             BGD_RECIPIENT,
             AAVE_UPFRONT_AMOUNT
@@ -103,13 +101,15 @@ contract PayloadAaveBGD {
 
         // Creation of the streams
         controllerOfCollector.createStream(
+            address(COLLECTOR_V2_PROXY),
             BGD_RECIPIENT,
             AUSDC_STREAM_AMOUNT,
             address(AUSDC),
             block.timestamp,
             block.timestamp + STREAMS_DURATION
         );
-        aaveControllerOfCollector.createStream(
+        controllerOfCollector.createStream(
+            address(AAVE_TOKEN_COLLECTOR_PROXY),
             BGD_RECIPIENT,
             AAVE_STREAM_AMOUNT,
             address(AAVE),

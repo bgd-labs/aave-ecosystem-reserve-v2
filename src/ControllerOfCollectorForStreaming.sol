@@ -7,30 +7,30 @@ import {IAdminControlledTreasury} from "./interfaces/IAdminControlledTreasury.so
 import {IERC20} from "./interfaces/IERC20.sol";
 
 contract ControllerOfCollectorForStreaming is Ownable {
-    address public immutable COLLECTOR;
-
-    constructor(address aaveGovShortTimelock, address collectorProxy) {
-        COLLECTOR = collectorProxy;
+    constructor(address aaveGovShortTimelock) {
         transferOwnership(aaveGovShortTimelock);
     }
 
     function approve(
+        address collector,
         IERC20 token,
         address recipient,
         uint256 amount
     ) external onlyOwner {
-        IAdminControlledTreasury(COLLECTOR).approve(token, recipient, amount);
+        IAdminControlledTreasury(collector).approve(token, recipient, amount);
     }
 
     function transfer(
+        address collector,
         IERC20 token,
         address recipient,
         uint256 amount
     ) external onlyOwner {
-        IAdminControlledTreasury(COLLECTOR).transfer(token, recipient, amount);
+        IAdminControlledTreasury(collector).transfer(token, recipient, amount);
     }
 
     function createStream(
+        address collector,
         address recipient,
         uint256 deposit,
         address tokenAddress,
@@ -38,7 +38,7 @@ contract ControllerOfCollectorForStreaming is Ownable {
         uint256 stopTime
     ) external onlyOwner returns (uint256) {
         return
-            IStreamable(COLLECTOR).createStream(
+            IStreamable(collector).createStream(
                 recipient,
                 deposit,
                 tokenAddress,
@@ -47,15 +47,19 @@ contract ControllerOfCollectorForStreaming is Ownable {
             );
     }
 
-    function withdrawFromStream(uint256 streamId, uint256 funds)
+    function withdrawFromStream(
+        address collector,
+        uint256 streamId,
+        uint256 funds
+    ) external onlyOwner returns (bool) {
+        return IStreamable(collector).withdrawFromStream(streamId, funds);
+    }
+
+    function cancelStream(address collector, uint256 streamId)
         external
         onlyOwner
         returns (bool)
     {
-        return IStreamable(COLLECTOR).withdrawFromStream(streamId, funds);
-    }
-
-    function cancelStream(uint256 streamId) external onlyOwner returns (bool) {
-        return IStreamable(COLLECTOR).cancelStream(streamId);
+        return IStreamable(collector).cancelStream(streamId);
     }
 }

@@ -2,10 +2,15 @@
 pragma solidity 0.8.11;
 
 import {BaseTest} from "./base/BaseTest.sol";
+import {IERC20} from "../interfaces/IERC20.sol";
+import {IStreamable} from "../interfaces/IStreamable.sol";
+import {IOwnable} from "../interfaces/IOwnable.sol";
+import {IAdminControlledTreasury} from "../interfaces/IAdminControlledTreasury.sol";
+import {IControllerOfCollectorForStreaming} from "../interfaces/IControllerOfCollectorForStreaming.sol";
+import {IInitializableAdminUpgradeabilityProxy} from "../interfaces/IInitializableAdminUpgradeabilityProxy.sol";
 import {PayloadAaveBGD} from "../PayloadAaveBGD.sol";
 import {AaveGovHelpers, IAaveGov} from "./utils/AaveGovHelpers.sol";
 import {ApproximateMath} from "./utils/ApproximateMath.sol";
-import {IERC20} from "../interfaces/IERC20.sol";
 import {console} from "./utils/console.sol";
 
 contract ValidationProposal is BaseTest {
@@ -16,6 +21,19 @@ contract ValidationProposal is BaseTest {
         IERC20 asset,
         uint256 expectedBalance,
         uint256 currentBalance
+    );
+
+    error InvalidBalanceAfterWithdraw(
+        IERC20 asset,
+        uint256 expectedBalance,
+        uint256 currentBalance
+    );
+
+    error WrongOwnerOfController(address expect, address current);
+
+    error InconsistentFundsAdminOfReserves(
+        address controllerOfProtocolReserve,
+        address controllerOfAaveReserve
     );
 
     function setUp() public {}
@@ -53,6 +71,17 @@ contract ValidationProposal is BaseTest {
         );
 
         AaveGovHelpers._passVote(vm, AAVE_WHALE, proposalId);
+
+        _validatePostProposalUpfronts(proposalId);
+        _validatePostProposalStreams(proposalId);
+        _validatePostProposalACL(proposalId);
+    }
+
+    function _validatePostProposalUpfronts(uint256 proposalId) internal {
+        IAaveGov.ProposalWithoutVotes memory proposalData = AaveGovHelpers
+            ._getProposalById(proposalId);
+        // Generally, there is no reason to have more than 1 payload if using the DELEGATECALL pattern
+        address payload = proposalData.targets[0];
 
         if (
             !ApproximateMath._almostEqual(
@@ -121,5 +150,224 @@ contract ValidationProposal is BaseTest {
                 )
             );
         }
+    }
+
+    function _validatePostProposalStreams(uint256 proposalId) internal {
+        IAaveGov.ProposalWithoutVotes memory proposalData = AaveGovHelpers
+            ._getProposalById(proposalId);
+        address payload = proposalData.targets[0];
+
+        IStreamable collectorProxy = IStreamable(
+            address(PayloadAaveBGD(payload).COLLECTOR_V2_PROXY())
+        );
+        IStreamable aaveCollectorProxy = IStreamable(
+            address(PayloadAaveBGD(payload).AAVE_TOKEN_COLLECTOR_PROXY())
+        );
+        (
+            ,
+            address recipient,
+            ,
+            ,
+            uint256 startTime,
+            ,
+            ,
+            uint256 ratePerSecond
+        ) = collectorProxy.getStream(100000);
+
+        (
+            ,
+            ,
+            ,
+            ,
+            uint256 startTimeAave,
+            ,
+            ,
+            uint256 ratePerSecondAave
+        ) = aaveCollectorProxy.getStream(100000);
+
+        vm.warp(startTime + 1 days);
+        address bgdRecipient = PayloadAaveBGD(payload).BGD_RECIPIENT();
+        IERC20 aUsdc = PayloadAaveBGD(payload).AUSDC();
+        IERC20 aave = PayloadAaveBGD(payload).AAVE();
+
+        uint256 recipientAUsdcBalanceBefore = aUsdc.balanceOf(bgdRecipient);
+        uint256 recipientAaveBalanceBefore = aave.balanceOf(bgdRecipient);
+
+        vm.startPrank(bgdRecipient);
+
+        collectorProxy.withdrawFromStream(
+            100000,
+            collectorProxy.balanceOf(100000, bgdRecipient)
+        );
+
+        aaveCollectorProxy.withdrawFromStream(
+            100000,
+            aaveCollectorProxy.balanceOf(100000, bgdRecipient)
+        );
+
+        if (
+            aUsdc.balanceOf(bgdRecipient) <
+            (recipientAUsdcBalanceBefore + (ratePerSecond * 1 days))
+        ) {
+            revert InvalidBalanceAfterWithdraw(
+                aUsdc,
+                recipientAUsdcBalanceBefore + (ratePerSecond * 1 days),
+                aUsdc.balanceOf(bgdRecipient)
+            );
+        }
+
+        if (
+            aave.balanceOf(bgdRecipient) <
+            (recipientAaveBalanceBefore + (ratePerSecondAave * 1 days))
+        ) {
+            revert InvalidBalanceAfterWithdraw(
+                aave,
+                recipientAaveBalanceBefore + (ratePerSecondAave * 1 days),
+                aave.balanceOf(bgdRecipient)
+            );
+        }
+
+        vm.stopPrank();
+    }
+
+    function _validatePostProposalACL(uint256 proposalId) internal {
+        IAaveGov.ProposalWithoutVotes memory proposalData = AaveGovHelpers
+            ._getProposalById(proposalId);
+        PayloadAaveBGD payload = PayloadAaveBGD(proposalData.targets[0]);
+
+        address protocolReserve = address(
+            PayloadAaveBGD(payload).COLLECTOR_V2_PROXY()
+        );
+        address aaveTreasury = address(
+            PayloadAaveBGD(payload).AAVE_TOKEN_COLLECTOR_PROXY()
+        );
+
+        // The controller of the reserve for both protocol's and AAVE treasuries is owned by the short executor
+        address controllerOfProtocolReserve = IAdminControlledTreasury(
+            protocolReserve
+        ).getFundsAdmin();
+
+        address controllerOfAaveReserve = IAdminControlledTreasury(aaveTreasury)
+            .getFundsAdmin();
+
+        address shortExecutor = payload.GOV_SHORT_EXECUTOR();
+
+        if (controllerOfProtocolReserve != controllerOfAaveReserve) {
+            revert InconsistentFundsAdminOfReserves(
+                controllerOfProtocolReserve,
+                controllerOfAaveReserve
+            );
+        }
+
+        if (IOwnable(controllerOfProtocolReserve).owner() != shortExecutor) {
+            revert WrongOwnerOfController(
+                shortExecutor,
+                IOwnable(controllerOfProtocolReserve).owner()
+            );
+        }
+
+        vm.startPrank(address(1));
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        IControllerOfCollectorForStreaming(controllerOfProtocolReserve).approve(
+                address(0),
+                IERC20(address(0)),
+                address(0),
+                0
+            );
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        IControllerOfCollectorForStreaming(controllerOfProtocolReserve)
+            .transfer(address(0), IERC20(address(0)), address(0), 0);
+
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        IControllerOfCollectorForStreaming(controllerOfProtocolReserve)
+            .createStream(address(0), address(0), 0, address(0), 0, 0);
+
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        IControllerOfCollectorForStreaming(controllerOfProtocolReserve)
+            .cancelStream(address(0), 0);
+
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        IControllerOfCollectorForStreaming(controllerOfProtocolReserve)
+            .withdrawFromStream(address(0), 0, 0);
+
+        vm.stopPrank();
+
+        // Test of ownership of treasuries' by short executor. Only proxy's owner can call admin()
+        vm.startPrank(shortExecutor);
+        IInitializableAdminUpgradeabilityProxy(protocolReserve).admin();
+        IInitializableAdminUpgradeabilityProxy(aaveTreasury).admin();
+        vm.stopPrank();
+
+        // ACL of the protocols's treasury functions. Only by controller of reserve
+        vm.startPrank(address(1));
+        vm.expectRevert(bytes("ONLY_BY_FUNDS_ADMIN"));
+        IAdminControlledTreasury(protocolReserve).approve(
+            IERC20(address(0)),
+            address(0),
+            0
+        );
+        vm.expectRevert(bytes("ONLY_BY_FUNDS_ADMIN"));
+        IAdminControlledTreasury(protocolReserve).transfer(
+            IERC20(address(0)),
+            address(0),
+            0
+        );
+
+        vm.expectRevert(bytes("ONLY_BY_FUNDS_ADMIN"));
+        IStreamable(protocolReserve).createStream(
+            address(0),
+            0,
+            address(0),
+            0,
+            0
+        );
+
+        vm.expectRevert(
+            bytes(
+                "caller is not the funds admin or the recipient of the stream"
+            )
+        );
+        IStreamable(protocolReserve).cancelStream(100000);
+
+        vm.expectRevert(
+            bytes(
+                "caller is not the funds admin or the recipient of the stream"
+            )
+        );
+        IStreamable(protocolReserve).withdrawFromStream(100000, 0);
+
+        // ACL of the AAVE's treasury functions. Only by controller of reserve
+
+        vm.expectRevert(bytes("ONLY_BY_FUNDS_ADMIN"));
+        IAdminControlledTreasury(aaveTreasury).approve(
+            IERC20(address(0)),
+            address(0),
+            0
+        );
+        vm.expectRevert(bytes("ONLY_BY_FUNDS_ADMIN"));
+        IAdminControlledTreasury(aaveTreasury).transfer(
+            IERC20(address(0)),
+            address(0),
+            0
+        );
+
+        vm.expectRevert(bytes("ONLY_BY_FUNDS_ADMIN"));
+        IStreamable(aaveTreasury).createStream(address(0), 0, address(0), 0, 0);
+
+        vm.expectRevert(
+            bytes(
+                "caller is not the funds admin or the recipient of the stream"
+            )
+        );
+        IStreamable(aaveTreasury).cancelStream(100000);
+
+        vm.expectRevert(
+            bytes(
+                "caller is not the funds admin or the recipient of the stream"
+            )
+        );
+        IStreamable(aaveTreasury).withdrawFromStream(100000, 0);
+
+        vm.stopPrank();
     }
 }

@@ -15,4 +15,6 @@ interface IAdminControlledTreasury {
         address recipient,
         uint256 amount
     ) external;
+
+    function getFundsAdmin() external view returns (address);
 }

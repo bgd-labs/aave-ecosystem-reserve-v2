@@ -116,4 +116,11 @@ library AaveGovHelpers {
         GOV.execute(proposalId);
         vm.stopPrank();
     }
+
+    function _getProposalById(uint256 proposalId)
+        internal
+        returns (IAaveGov.ProposalWithoutVotes memory)
+    {
+        return GOV.getProposalById(proposalId);
+    }
 }

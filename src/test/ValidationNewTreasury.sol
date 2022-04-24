@@ -99,8 +99,7 @@ contract ValidationNewTreasury is BaseTest {
         AaveStreamingTreasuryV1 treasuryImpl = new AaveStreamingTreasuryV1();
 
         controllerOfCollector = new ControllerOfCollectorForStreaming(
-            GOV_SHORT_EXECUTOR,
-            address(COLLECTOR_V2_PROXY)
+            GOV_SHORT_EXECUTOR
         );
 
         vm.deal(GOV_SHORT_EXECUTOR, 1 ether);
