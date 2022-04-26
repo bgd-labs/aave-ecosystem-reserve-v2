@@ -285,7 +285,7 @@ contract ValidationProposal is BaseTest {
 
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
         IAaveEcosystemReserveController(controllerOfProtocolReserve)
-            .createStream(address(0), address(0), 0, address(0), 0, 0);
+            .createStream(address(0), address(0), 0, IERC20(address(0)), 0, 0);
 
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
         IAaveEcosystemReserveController(controllerOfProtocolReserve)

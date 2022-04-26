@@ -22,7 +22,7 @@ interface IAaveEcosystemReserveController {
         address collector,
         address recipient,
         uint256 deposit,
-        address tokenAddress,
+        IERC20 tokenAddress,
         uint256 startTime,
         uint256 stopTime
     ) external;

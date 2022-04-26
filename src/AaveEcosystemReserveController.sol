@@ -41,7 +41,7 @@ contract AaveEcosystemReserveController is Ownable {
         address collector,
         address recipient,
         uint256 deposit,
-        address tokenAddress,
+        IERC20 tokenAddress,
         uint256 startTime,
         uint256 stopTime
     ) external onlyOwner returns (uint256) {
@@ -49,7 +49,7 @@ contract AaveEcosystemReserveController is Ownable {
             IStreamable(collector).createStream(
                 recipient,
                 deposit,
-                tokenAddress,
+                address(tokenAddress),
                 startTime,
                 stopTime
             );

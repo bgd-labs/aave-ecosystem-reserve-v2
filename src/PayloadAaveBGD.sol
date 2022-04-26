@@ -104,7 +104,7 @@ contract PayloadAaveBGD {
             address(COLLECTOR_V2_PROXY),
             BGD_RECIPIENT,
             AUSDC_STREAM_AMOUNT,
-            address(AUSDC),
+            AUSDC,
             block.timestamp,
             block.timestamp + STREAMS_DURATION
         );
@@ -112,7 +112,7 @@ contract PayloadAaveBGD {
             address(AAVE_TOKEN_COLLECTOR_PROXY),
             BGD_RECIPIENT,
             AAVE_STREAM_AMOUNT,
-            address(AAVE),
+            AAVE,
             block.timestamp,
             block.timestamp + STREAMS_DURATION
         );
