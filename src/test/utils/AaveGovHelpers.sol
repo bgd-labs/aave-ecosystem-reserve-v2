@@ -119,6 +119,7 @@ library AaveGovHelpers {
 
     function _getProposalById(uint256 proposalId)
         internal
+        view
         returns (IAaveGov.ProposalWithoutVotes memory)
     {
         return GOV.getProposalById(proposalId);

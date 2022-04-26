@@ -163,27 +163,11 @@ contract ValidationProposal is BaseTest {
         IStreamable aaveCollectorProxy = IStreamable(
             address(PayloadAaveBGD(payload).AAVE_TOKEN_COLLECTOR_PROXY())
         );
-        (
-            ,
-            address recipient,
-            ,
-            ,
-            uint256 startTime,
-            ,
-            ,
-            uint256 ratePerSecond
-        ) = collectorProxy.getStream(100000);
+        (, , , , uint256 startTime, , , uint256 ratePerSecond) = collectorProxy
+            .getStream(100000);
 
-        (
-            ,
-            ,
-            ,
-            ,
-            uint256 startTimeAave,
-            ,
-            ,
-            uint256 ratePerSecondAave
-        ) = aaveCollectorProxy.getStream(100000);
+        (, , , , , , , uint256 ratePerSecondAave) = aaveCollectorProxy
+            .getStream(100000);
 
         vm.warp(startTime + 1 days);
         address bgdRecipient = PayloadAaveBGD(payload).BGD_RECIPIENT();

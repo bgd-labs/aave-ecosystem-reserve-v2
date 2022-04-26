@@ -2,6 +2,7 @@
 pragma solidity 0.8.11;
 
 import {IERC20} from "./interfaces/IERC20.sol";
+import {IAdminControlledEcosystemReserve} from "./interfaces/IAdminControlledEcosystemReserve.sol";
 import {VersionedInitializable} from "./libs/VersionedInitializable.sol";
 import {SafeERC20} from "./libs/SafeERC20.sol";
 import {ReentrancyGuard} from "./libs/ReentrancyGuard.sol";
@@ -13,32 +14,35 @@ import {ReentrancyGuard} from "./libs/ReentrancyGuard.sol";
  * Adapted to be an implementation of a transparent proxy
  * @author BGD Labs
  **/
-abstract contract AdminControlledEcosystemReserve is VersionedInitializable {
+abstract contract AdminControlledEcosystemReserve is
+    VersionedInitializable,
+    IAdminControlledEcosystemReserve
+{
     using SafeERC20 for IERC20;
-
-    event NewFundsAdmin(address indexed fundsAdmin);
 
     address internal _fundsAdmin;
 
     uint256 public constant REVISION = 4;
 
-    /// @dev Used as reference address for outflows of ETH
+    /// @inheritdoc IAdminControlledEcosystemReserve
     address public constant ETH_MOCK_ADDRESS =
         0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-
-    function getRevision() internal pure override returns (uint256) {
-        return REVISION;
-    }
-
-    function getFundsAdmin() external view returns (address) {
-        return _fundsAdmin;
-    }
 
     modifier onlyFundsAdmin() {
         require(msg.sender == _fundsAdmin, "ONLY_BY_FUNDS_ADMIN");
         _;
     }
 
+    function getRevision() internal pure override returns (uint256) {
+        return REVISION;
+    }
+
+    /// @inheritdoc IAdminControlledEcosystemReserve
+    function getFundsAdmin() external view returns (address) {
+        return _fundsAdmin;
+    }
+
+    /// @inheritdoc IAdminControlledEcosystemReserve
     function approve(
         IERC20 token,
         address recipient,
@@ -47,6 +51,7 @@ abstract contract AdminControlledEcosystemReserve is VersionedInitializable {
         token.safeApprove(recipient, amount);
     }
 
+    /// @inheritdoc IAdminControlledEcosystemReserve
     function transfer(
         IERC20 token,
         address recipient,
@@ -60,11 +65,11 @@ abstract contract AdminControlledEcosystemReserve is VersionedInitializable {
         }
     }
 
+    /// @dev needed in order to receive ETH from the Aave v1 ecosystem reserve
+    receive() external payable {}
+
     function _setFundsAdmin(address admin) internal {
         _fundsAdmin = admin;
         emit NewFundsAdmin(admin);
     }
-
-    /// @dev needed in order to receive ETH from the Aave v1 ecosystem reserve
-    receive() external payable {}
 }

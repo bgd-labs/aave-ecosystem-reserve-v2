@@ -4,13 +4,22 @@ pragma solidity 0.8.11;
 import {Ownable} from "./libs/Ownable.sol";
 import {IStreamable} from "./interfaces/IStreamable.sol";
 import {IAdminControlledEcosystemReserve} from "./interfaces/IAdminControlledEcosystemReserve.sol";
+import {IAaveEcosystemReserveController} from "./interfaces/IAaveEcosystemReserveController.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
 
-contract AaveEcosystemReserveController is Ownable {
+contract AaveEcosystemReserveController is
+    Ownable,
+    IAaveEcosystemReserveController
+{
+    /**
+     * @dev Constructor.
+     * @param aaveGovShortTimelock The address of the Aave's governance executor, owning this contract
+     */
     constructor(address aaveGovShortTimelock) {
         transferOwnership(aaveGovShortTimelock);
     }
 
+    /// @inheritdoc IAaveEcosystemReserveController
     function approve(
         address collector,
         IERC20 token,
@@ -24,6 +33,7 @@ contract AaveEcosystemReserveController is Ownable {
         );
     }
 
+    /// @inheritdoc IAaveEcosystemReserveController
     function transfer(
         address collector,
         IERC20 token,
@@ -37,6 +47,7 @@ contract AaveEcosystemReserveController is Ownable {
         );
     }
 
+    /// @inheritdoc IAaveEcosystemReserveController
     function createStream(
         address collector,
         address recipient,
@@ -55,6 +66,7 @@ contract AaveEcosystemReserveController is Ownable {
             );
     }
 
+    /// @inheritdoc IAaveEcosystemReserveController
     function withdrawFromStream(
         address collector,
         uint256 streamId,
@@ -63,6 +75,7 @@ contract AaveEcosystemReserveController is Ownable {
         return IStreamable(collector).withdrawFromStream(streamId, funds);
     }
 
+    /// @inheritdoc IAaveEcosystemReserveController
     function cancelStream(address collector, uint256 streamId)
         external
         onlyOwner
