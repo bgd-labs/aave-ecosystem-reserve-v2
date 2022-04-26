@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.11;
 
-import {ControllerOfCollectorForStreaming} from "./ControllerOfCollectorForStreaming.sol";
-import {AaveStreamingTreasuryV1} from "./AaveStreamingTreasuryV1.sol";
+import {AaveEcosystemReserveController} from "./AaveEcosystemReserveController.sol";
+import {AaveEcosystemReserveV2} from "./AaveEcosystemReserveV2.sol";
 import {IInitializableAdminUpgradeabilityProxy} from "./interfaces/IInitializableAdminUpgradeabilityProxy.sol";
 import {IStreamable} from "./interfaces/IStreamable.sol";
-import {IAdminControlledTreasury} from "./interfaces/IAdminControlledTreasury.sol";
+import {IAdminControlledEcosystemReserve} from "./interfaces/IAdminControlledEcosystemReserve.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
 
 contract PayloadAaveBGD {
@@ -47,31 +47,31 @@ contract PayloadAaveBGD {
 
     function execute() external {
         // We deploy only 1 new controller of collector, to use in common for the treasuries of the protocol and AAVE
-        ControllerOfCollectorForStreaming controllerOfCollector = new ControllerOfCollectorForStreaming(
+        AaveEcosystemReserveController controllerOfCollector = new AaveEcosystemReserveController(
                 GOV_SHORT_EXECUTOR
             );
 
-        // New implementation of the treasury, with streaming capabilities
+        // New implementation of the ecosystem reserve, with streaming capabilities
         // Important to highlight that the REVISION used (4) is higher than the current one for both treasuries
-        AaveStreamingTreasuryV1 treasuryImpl = new AaveStreamingTreasuryV1();
+        AaveEcosystemReserveV2 ecoReserveImpl = new AaveEcosystemReserveV2();
 
         // Upgrade of both treasuries' implementation
         COLLECTOR_V2_PROXY.upgradeToAndCall(
-            address(treasuryImpl),
+            address(ecoReserveImpl),
             abi.encodeWithSelector(
                 IStreamable.initialize.selector,
                 address(controllerOfCollector)
             )
         );
         AAVE_TOKEN_COLLECTOR_PROXY.upgradeToAndCall(
-            address(treasuryImpl),
+            address(ecoReserveImpl),
             abi.encodeWithSelector(
                 IStreamable.initialize.selector,
                 address(controllerOfCollector)
             )
         );
         // We initialise the implementation, for security
-        treasuryImpl.initialize(address(controllerOfCollector));
+        ecoReserveImpl.initialize(address(controllerOfCollector));
 
         // Transfer of the upfront payment, 40% of the total
         controllerOfCollector.transfer(

@@ -3,10 +3,10 @@ pragma solidity 0.8.11;
 
 import {Ownable} from "./libs/Ownable.sol";
 import {IStreamable} from "./interfaces/IStreamable.sol";
-import {IAdminControlledTreasury} from "./interfaces/IAdminControlledTreasury.sol";
+import {IAdminControlledEcosystemReserve} from "./interfaces/IAdminControlledEcosystemReserve.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
 
-contract ControllerOfCollectorForStreaming is Ownable {
+contract AaveEcosystemReserveController is Ownable {
     constructor(address aaveGovShortTimelock) {
         transferOwnership(aaveGovShortTimelock);
     }
@@ -17,7 +17,11 @@ contract ControllerOfCollectorForStreaming is Ownable {
         address recipient,
         uint256 amount
     ) external onlyOwner {
-        IAdminControlledTreasury(collector).approve(token, recipient, amount);
+        IAdminControlledEcosystemReserve(collector).approve(
+            token,
+            recipient,
+            amount
+        );
     }
 
     function transfer(
@@ -26,7 +30,11 @@ contract ControllerOfCollectorForStreaming is Ownable {
         address recipient,
         uint256 amount
     ) external onlyOwner {
-        IAdminControlledTreasury(collector).transfer(token, recipient, amount);
+        IAdminControlledEcosystemReserve(collector).transfer(
+            token,
+            recipient,
+            amount
+        );
     }
 
     function createStream(

@@ -1,18 +1,18 @@
-# Aave streaming treasury
+# Aave ecosystem reserve V2
 
-This repository contains an implementation to update the Aave treasury proxy located [here](https://etherscan.io/address/0x464c71f6c2f760dda6093dcb91c24c39e5d6e18c), in order to allow native streaming of funds from it.
+This repository contains an implementation to update the Aave ecosystem reserve proxy located [here](https://etherscan.io/address/0x464c71f6c2f760dda6093dcb91c24c39e5d6e18c), and the reserve of AAVE located [here](https://etherscan.io/address/0x25f2226b597e8f9514b3f68f00f494cf4f286491) in order to allow native streaming of funds from them.
 The rationale of this change is that, as more and more external parties like BGD engage with the Aave DAO, and the compensation is usually via stream of funds, it is not optimal to send the whole capital of the stream upfront to a system like the current Sablier v1 as:
 
 - The current funds would be sent there as growing-balance aTokens (unless wrapped), which Sablier doesn't support.
-- It is not optimal to lock funds somewhere else, even knowing that in long streams, the majority will still be available for the treasury to dispose if afterwards they get refilled.
+- It is not optimal to lock funds somewhere else, even knowing that in long streams, the majority will still be available for the ecosystem reserve to dispose if afterwards they get refilled.
 
 So in order to enable this, the strategy has been:
 
-- Create a new contract inheriting from the current implementation present under the proxy of the treasury. This assures that all storage layout remains fully compatible, with only new layout "on top".
+- Create a new contract inheriting from the current implementation present under the proxy of the ecosystem reserve. This assures that all storage layout remains fully compatible, with only new layout "on top".
 - Port the majority of the logic of Sablier v1 to our new contract, with the following changes:
   - The concept of `sender` gets reduced to the `_fundsAdmin`, which will be the current controller of reserve contract. This means that nobody apart from the `_fundsAdmin` is able to create/cancel streams. On withdrawal, the same but obviously allowing the recipient of the stream to withdraw too.
-  - On Sablier v1, on creation the whole `deposit` funds are transferred from the sender to the contract itself. In our case, it is assumed that the treasury always has funds, so no `transferFrom()` required.
-  - Parallel to creation, on cancellation of a stream, the funds that should be returned to the `sender` of the stream are not sent anywhere, they just remain in the treasury.
+  - On Sablier v1, on creation the whole `deposit` funds are transferred from the sender to the contract itself. In our case, it is assumed that the ecosystem reserve always has funds, so no `transferFrom()` required.
+  - Parallel to creation, on cancellation of a stream, the funds that should be returned to the `sender` of the stream are not sent anywhere, they just remain in the ecosystem reserve.
   - SafeMath/CarefulMath are not needed, as the code has been updated to Solidity 0.8.11, already including native safe math.
 
 <br>

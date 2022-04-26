@@ -5,8 +5,8 @@ import {BaseTest} from "./base/BaseTest.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
 import {IStreamable} from "../interfaces/IStreamable.sol";
 import {IOwnable} from "../interfaces/IOwnable.sol";
-import {IAdminControlledTreasury} from "../interfaces/IAdminControlledTreasury.sol";
-import {IControllerOfCollectorForStreaming} from "../interfaces/IControllerOfCollectorForStreaming.sol";
+import {IAdminControlledEcosystemReserve} from "../interfaces/IAdminControlledEcosystemReserve.sol";
+import {IAaveEcosystemReserveController} from "../interfaces/IAaveEcosystemReserveController.sol";
 import {IInitializableAdminUpgradeabilityProxy} from "../interfaces/IInitializableAdminUpgradeabilityProxy.sol";
 import {PayloadAaveBGD} from "../PayloadAaveBGD.sol";
 import {AaveGovHelpers, IAaveGov} from "./utils/AaveGovHelpers.sol";
@@ -238,17 +238,18 @@ contract ValidationProposal is BaseTest {
         address protocolReserve = address(
             PayloadAaveBGD(payload).COLLECTOR_V2_PROXY()
         );
-        address aaveTreasury = address(
+        address aaveReserve = address(
             PayloadAaveBGD(payload).AAVE_TOKEN_COLLECTOR_PROXY()
         );
 
         // The controller of the reserve for both protocol's and AAVE treasuries is owned by the short executor
-        address controllerOfProtocolReserve = IAdminControlledTreasury(
+        address controllerOfProtocolReserve = IAdminControlledEcosystemReserve(
             protocolReserve
         ).getFundsAdmin();
 
-        address controllerOfAaveReserve = IAdminControlledTreasury(aaveTreasury)
-            .getFundsAdmin();
+        address controllerOfAaveReserve = IAdminControlledEcosystemReserve(
+            aaveReserve
+        ).getFundsAdmin();
 
         address shortExecutor = payload.GOV_SHORT_EXECUTOR();
 
@@ -268,26 +269,30 @@ contract ValidationProposal is BaseTest {
 
         vm.startPrank(address(1));
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        IControllerOfCollectorForStreaming(controllerOfProtocolReserve).approve(
-                address(0),
-                IERC20(address(0)),
-                address(0),
-                0
-            );
+        IAaveEcosystemReserveController(controllerOfProtocolReserve).approve(
+            address(0),
+            IERC20(address(0)),
+            address(0),
+            0
+        );
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        IControllerOfCollectorForStreaming(controllerOfProtocolReserve)
-            .transfer(address(0), IERC20(address(0)), address(0), 0);
+        IAaveEcosystemReserveController(controllerOfProtocolReserve).transfer(
+            address(0),
+            IERC20(address(0)),
+            address(0),
+            0
+        );
 
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        IControllerOfCollectorForStreaming(controllerOfProtocolReserve)
+        IAaveEcosystemReserveController(controllerOfProtocolReserve)
             .createStream(address(0), address(0), 0, address(0), 0, 0);
 
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        IControllerOfCollectorForStreaming(controllerOfProtocolReserve)
+        IAaveEcosystemReserveController(controllerOfProtocolReserve)
             .cancelStream(address(0), 0);
 
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        IControllerOfCollectorForStreaming(controllerOfProtocolReserve)
+        IAaveEcosystemReserveController(controllerOfProtocolReserve)
             .withdrawFromStream(address(0), 0, 0);
 
         vm.stopPrank();
@@ -295,19 +300,19 @@ contract ValidationProposal is BaseTest {
         // Test of ownership of treasuries' by short executor. Only proxy's owner can call admin()
         vm.startPrank(shortExecutor);
         IInitializableAdminUpgradeabilityProxy(protocolReserve).admin();
-        IInitializableAdminUpgradeabilityProxy(aaveTreasury).admin();
+        IInitializableAdminUpgradeabilityProxy(aaveReserve).admin();
         vm.stopPrank();
 
-        // ACL of the protocols's treasury functions. Only by controller of reserve
+        // ACL of the protocols's ecosystem reserve functions. Only by controller of reserve
         vm.startPrank(address(1));
         vm.expectRevert(bytes("ONLY_BY_FUNDS_ADMIN"));
-        IAdminControlledTreasury(protocolReserve).approve(
+        IAdminControlledEcosystemReserve(protocolReserve).approve(
             IERC20(address(0)),
             address(0),
             0
         );
         vm.expectRevert(bytes("ONLY_BY_FUNDS_ADMIN"));
-        IAdminControlledTreasury(protocolReserve).transfer(
+        IAdminControlledEcosystemReserve(protocolReserve).transfer(
             IERC20(address(0)),
             address(0),
             0
@@ -336,37 +341,37 @@ contract ValidationProposal is BaseTest {
         );
         IStreamable(protocolReserve).withdrawFromStream(100000, 0);
 
-        // ACL of the AAVE's treasury functions. Only by controller of reserve
+        // ACL of the AAVE's ecosystem reserve functions. Only by controller of reserve
 
         vm.expectRevert(bytes("ONLY_BY_FUNDS_ADMIN"));
-        IAdminControlledTreasury(aaveTreasury).approve(
+        IAdminControlledEcosystemReserve(aaveReserve).approve(
             IERC20(address(0)),
             address(0),
             0
         );
         vm.expectRevert(bytes("ONLY_BY_FUNDS_ADMIN"));
-        IAdminControlledTreasury(aaveTreasury).transfer(
+        IAdminControlledEcosystemReserve(aaveReserve).transfer(
             IERC20(address(0)),
             address(0),
             0
         );
 
         vm.expectRevert(bytes("ONLY_BY_FUNDS_ADMIN"));
-        IStreamable(aaveTreasury).createStream(address(0), 0, address(0), 0, 0);
+        IStreamable(aaveReserve).createStream(address(0), 0, address(0), 0, 0);
 
         vm.expectRevert(
             bytes(
                 "caller is not the funds admin or the recipient of the stream"
             )
         );
-        IStreamable(aaveTreasury).cancelStream(100000);
+        IStreamable(aaveReserve).cancelStream(100000);
 
         vm.expectRevert(
             bytes(
                 "caller is not the funds admin or the recipient of the stream"
             )
         );
-        IStreamable(aaveTreasury).withdrawFromStream(100000, 0);
+        IStreamable(aaveReserve).withdrawFromStream(100000, 0);
 
         vm.stopPrank();
     }

@@ -3,15 +3,15 @@ pragma solidity 0.8.11;
 
 import {IInitializableAdminUpgradeabilityProxy} from "../interfaces/IInitializableAdminUpgradeabilityProxy.sol";
 import {BaseTest} from "./base/BaseTest.sol";
-import {AaveStreamingTreasuryV1} from "../AaveStreamingTreasuryV1.sol";
-import {ControllerOfCollectorForStreaming} from "../ControllerOfCollectorForStreaming.sol";
+import {AaveEcosystemReserveV2} from "../AaveEcosystemReserveV2.sol";
+import {AaveEcosystemReserveController} from "../AaveEcosystemReserveController.sol";
 import {ApproximateMath} from "./utils/ApproximateMath.sol";
-import {IAdminControlledTreasury} from "../interfaces/IAdminControlledTreasury.sol";
+import {IAdminControlledEcosystemReserve} from "../interfaces/IAdminControlledEcosystemReserve.sol";
 import {IStreamable} from "../interfaces/IStreamable.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
 import {console} from "./utils/console.sol";
 
-contract ValidationNewTreasury is BaseTest {
+contract ValidationNewEcosystemReserve is BaseTest {
     event CreateStream(
         uint256 indexed streamId,
         address indexed sender,
@@ -52,8 +52,8 @@ contract ValidationNewTreasury is BaseTest {
         uint256 current,
         uint256 expected
     );
-    error Withdraw_WrongTreasuryBalance(uint256 current, uint256 expected);
-    error Withdraw_WrongTreasuryBalanceStream(
+    error Withdraw_WrongEcoReserveBalance(uint256 current, uint256 expected);
+    error Withdraw_WrongEcoReserveBalanceStream(
         uint256 current,
         uint256 expected
     );
@@ -66,7 +66,7 @@ contract ValidationNewTreasury is BaseTest {
     address public constant GOV_SHORT_EXECUTOR =
         0xEE56e2B3D491590B5b31738cC34d5232F378a8D5;
 
-    ControllerOfCollectorForStreaming public controllerOfCollector;
+    AaveEcosystemReserveController public controllerOfCollector;
 
     address public constant RECIPIENT_STREAM_1 =
         0xd3B5A38aBd16e2636F1e94D1ddF0Ffb4161D5f10;
@@ -79,26 +79,26 @@ contract ValidationNewTreasury is BaseTest {
 
     function test1Creation() public {
         _Creation_validate(
-            AaveStreamingTreasuryV1(payable(address(COLLECTOR_V2_PROXY)))
+            AaveEcosystemReserveV2(payable(address(COLLECTOR_V2_PROXY)))
         );
     }
 
     function test2Cancel() public {
         _Cancel_validate(
-            AaveStreamingTreasuryV1(payable(address(COLLECTOR_V2_PROXY)))
+            AaveEcosystemReserveV2(payable(address(COLLECTOR_V2_PROXY)))
         );
     }
 
     function test3Withdraw() public {
         _Withdraw_validate(
-            AaveStreamingTreasuryV1(payable(address(COLLECTOR_V2_PROXY)))
+            AaveEcosystemReserveV2(payable(address(COLLECTOR_V2_PROXY)))
         );
     }
 
     function _initNewCollectorOnProxy() internal returns (address) {
-        AaveStreamingTreasuryV1 treasuryImpl = new AaveStreamingTreasuryV1();
+        AaveEcosystemReserveV2 ecoReserveImpl = new AaveEcosystemReserveV2();
 
-        controllerOfCollector = new ControllerOfCollectorForStreaming(
+        controllerOfCollector = new AaveEcosystemReserveController(
             GOV_SHORT_EXECUTOR
         );
 
@@ -106,7 +106,7 @@ contract ValidationNewTreasury is BaseTest {
         vm.startPrank(GOV_SHORT_EXECUTOR);
 
         COLLECTOR_V2_PROXY.upgradeToAndCall(
-            address(treasuryImpl),
+            address(ecoReserveImpl),
             abi.encodeWithSelector(
                 IStreamable.initialize.selector,
                 address(controllerOfCollector)
@@ -115,10 +115,10 @@ contract ValidationNewTreasury is BaseTest {
 
         vm.stopPrank();
 
-        return address(treasuryImpl);
+        return address(ecoReserveImpl);
     }
 
-    function _Creation_validate(AaveStreamingTreasuryV1 treasuryProxy)
+    function _Creation_validate(AaveEcosystemReserveV2 ecoReserveProxy)
         internal
     {
         address fundsAdmin = address(controllerOfCollector);
@@ -126,7 +126,7 @@ contract ValidationNewTreasury is BaseTest {
         // Accounts not being funds admin can't create a stream
         vm.startPrank(address(1));
         vm.expectRevert(bytes("ONLY_BY_FUNDS_ADMIN"));
-        treasuryProxy.createStream(
+        ecoReserveProxy.createStream(
             RECIPIENT_STREAM_1,
             6 ether,
             AWETH,
@@ -138,7 +138,7 @@ contract ValidationNewTreasury is BaseTest {
         // Recipients can'be be the 0x0, the collector or the controller of the collector
         vm.startPrank(fundsAdmin);
         vm.expectRevert(bytes("stream to the zero address"));
-        treasuryProxy.createStream(
+        ecoReserveProxy.createStream(
             address(0),
             6 ether,
             AWETH,
@@ -146,15 +146,15 @@ contract ValidationNewTreasury is BaseTest {
             (block.timestamp + 10) + 60
         );
         vm.expectRevert(bytes("stream to the contract itself"));
-        treasuryProxy.createStream(
-            address(treasuryProxy),
+        ecoReserveProxy.createStream(
+            address(ecoReserveProxy),
             6 ether,
             AWETH,
             block.timestamp + 10,
             (block.timestamp + 10) + 60
         );
         vm.expectRevert(bytes("stream to the caller"));
-        treasuryProxy.createStream(
+        ecoReserveProxy.createStream(
             address(fundsAdmin),
             6 ether,
             AWETH,
@@ -164,7 +164,7 @@ contract ValidationNewTreasury is BaseTest {
 
         // Deposits need to be more than 0, more than duration in seconds and multiple of duration
         vm.expectRevert(bytes("deposit is zero"));
-        treasuryProxy.createStream(
+        ecoReserveProxy.createStream(
             RECIPIENT_STREAM_1,
             0,
             AWETH,
@@ -172,7 +172,7 @@ contract ValidationNewTreasury is BaseTest {
             (block.timestamp + 10) + 60
         );
         vm.expectRevert(bytes("deposit smaller than time delta"));
-        treasuryProxy.createStream(
+        ecoReserveProxy.createStream(
             RECIPIENT_STREAM_1,
             59,
             AWETH,
@@ -180,7 +180,7 @@ contract ValidationNewTreasury is BaseTest {
             (block.timestamp + 10) + 60
         );
         vm.expectRevert(bytes("deposit not multiple of time delta"));
-        treasuryProxy.createStream(
+        ecoReserveProxy.createStream(
             RECIPIENT_STREAM_1,
             61,
             AWETH,
@@ -190,7 +190,7 @@ contract ValidationNewTreasury is BaseTest {
 
         // Start/stop times need to be consistent: start more than current current, stop later than start
         vm.expectRevert(bytes("start time before block.timestamp"));
-        treasuryProxy.createStream(
+        ecoReserveProxy.createStream(
             RECIPIENT_STREAM_1,
             6 ether,
             AWETH,
@@ -198,7 +198,7 @@ contract ValidationNewTreasury is BaseTest {
             (block.timestamp + 10) + 60
         );
         vm.expectRevert(bytes("stop time before the start time"));
-        treasuryProxy.createStream(
+        ecoReserveProxy.createStream(
             RECIPIENT_STREAM_1,
             6 ether,
             AWETH,
@@ -209,14 +209,14 @@ contract ValidationNewTreasury is BaseTest {
         vm.expectEmit(true, true, true, true);
         emit CreateStream(
             100000,
-            address(treasuryProxy),
+            address(ecoReserveProxy),
             RECIPIENT_STREAM_1,
             6 ether,
             AWETH,
             block.timestamp + 10,
             (block.timestamp + 10) + 60
         );
-        uint256 streamId = treasuryProxy.createStream(
+        uint256 streamId = ecoReserveProxy.createStream(
             RECIPIENT_STREAM_1,
             6 ether,
             AWETH,
@@ -234,9 +234,9 @@ contract ValidationNewTreasury is BaseTest {
             uint256 stopTime,
             uint256 remainingBalance,
             uint256 ratePerSecond
-        ) = treasuryProxy.getStream(streamId);
+        ) = ecoReserveProxy.getStream(streamId);
 
-        if (sender != address(treasuryProxy))
+        if (sender != address(ecoReserveProxy))
             revert Create_InvalidSender(sender);
         if (recipient != RECIPIENT_STREAM_1)
             revert Create_InvalidRecipient(recipient);
@@ -250,23 +250,23 @@ contract ValidationNewTreasury is BaseTest {
             revert Create_InvalidRemaining(remainingBalance);
         if (ratePerSecond != (6 ether / 60))
             revert Create_InvalidRatePerSecond(ratePerSecond);
-        if (treasuryProxy.nextStreamId() != (streamId + 1))
-            revert Create_InvalidNextStreamId(treasuryProxy.nextStreamId());
+        if (ecoReserveProxy.nextStreamId() != (streamId + 1))
+            revert Create_InvalidNextStreamId(ecoReserveProxy.nextStreamId());
 
         vm.stopPrank();
     }
 
-    function _Cancel_validate(AaveStreamingTreasuryV1 treasuryProxy) internal {
+    function _Cancel_validate(AaveEcosystemReserveV2 ecoReserveProxy) internal {
         address fundsAdmin = address(controllerOfCollector);
 
         // Accounts not being funds admin can't create a stream
         vm.startPrank(address(1));
         vm.expectRevert(bytes("stream does not exist"));
-        treasuryProxy.cancelStream(1);
+        ecoReserveProxy.cancelStream(1);
         vm.stopPrank();
 
         vm.startPrank(fundsAdmin);
-        uint256 streamId = treasuryProxy.createStream(
+        uint256 streamId = ecoReserveProxy.createStream(
             RECIPIENT_STREAM_1,
             6 ether,
             AWETH,
@@ -281,7 +281,7 @@ contract ValidationNewTreasury is BaseTest {
                 "caller is not the funds admin or the recipient of the stream"
             )
         );
-        treasuryProxy.cancelStream(streamId);
+        ecoReserveProxy.cancelStream(streamId);
         vm.stopPrank();
 
         // Admin can cancel the stream
@@ -295,19 +295,19 @@ contract ValidationNewTreasury is BaseTest {
         vm.expectEmit(true, true, true, true);
         emit CancelStream(
             streamId,
-            address(treasuryProxy),
+            address(ecoReserveProxy),
             RECIPIENT_STREAM_1,
             (6 ether / 6) * 5,
             6 ether / 6
         );
-        treasuryProxy.cancelStream(streamId);
+        ecoReserveProxy.cancelStream(streamId);
 
         uint256 balanceRecipientAfter = IERC20(AWETH).balanceOf(
             RECIPIENT_STREAM_1
         );
 
         vm.expectRevert(bytes("stream does not exist"));
-        treasuryProxy.getStream(streamId);
+        ecoReserveProxy.getStream(streamId);
 
         if (balanceRecipientAfter != (balanceRecipientBefore + (6 ether / 6)))
             revert Cancel_WrongRecipientBalance(
@@ -326,7 +326,7 @@ contract ValidationNewTreasury is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(fundsAdmin);
-        streamId = treasuryProxy.createStream(
+        streamId = ecoReserveProxy.createStream(
             RECIPIENT_STREAM_1,
             6 ether,
             AWETH,
@@ -342,12 +342,12 @@ contract ValidationNewTreasury is BaseTest {
         vm.expectEmit(true, true, true, true);
         emit CancelStream(
             streamId,
-            address(treasuryProxy),
+            address(ecoReserveProxy),
             RECIPIENT_STREAM_1,
             6 ether,
             0
         );
-        treasuryProxy.cancelStream(streamId);
+        ecoReserveProxy.cancelStream(streamId);
 
         balanceRecipientAfter = IERC20(AWETH).balanceOf(RECIPIENT_STREAM_1);
         if (balanceRecipientBefore != balanceRecipientAfter)
@@ -359,7 +359,7 @@ contract ValidationNewTreasury is BaseTest {
         vm.stopPrank();
     }
 
-    function _Withdraw_validate(AaveStreamingTreasuryV1 treasuryProxy)
+    function _Withdraw_validate(AaveEcosystemReserveV2 ecoReserveProxy)
         internal
     {
         address fundsAdmin = address(controllerOfCollector);
@@ -367,11 +367,11 @@ contract ValidationNewTreasury is BaseTest {
         // Accounts not being funds admin can't create a stream
         vm.startPrank(address(1));
         vm.expectRevert(bytes("stream does not exist"));
-        treasuryProxy.cancelStream(1);
+        ecoReserveProxy.cancelStream(1);
         vm.stopPrank();
 
         vm.startPrank(fundsAdmin);
-        uint256 streamId = treasuryProxy.createStream(
+        uint256 streamId = ecoReserveProxy.createStream(
             RECIPIENT_STREAM_1,
             6 ether,
             AWETH,
@@ -386,49 +386,49 @@ contract ValidationNewTreasury is BaseTest {
                 "caller is not the funds admin or the recipient of the stream"
             )
         );
-        treasuryProxy.withdrawFromStream(streamId, 0);
+        ecoReserveProxy.withdrawFromStream(streamId, 0);
         vm.stopPrank();
 
         vm.startPrank(fundsAdmin);
         vm.expectRevert(bytes("amount is zero"));
-        treasuryProxy.withdrawFromStream(streamId, 0);
+        ecoReserveProxy.withdrawFromStream(streamId, 0);
 
         vm.warp(block.timestamp + 20);
         vm.expectRevert(bytes("amount exceeds the available balance"));
-        treasuryProxy.withdrawFromStream(streamId, 2 ether);
+        ecoReserveProxy.withdrawFromStream(streamId, 2 ether);
 
         uint256 balanceRecipientBefore = IERC20(AWETH).balanceOf(
             RECIPIENT_STREAM_1
         );
-        uint256 balanceRecipientStreamBefore = treasuryProxy.balanceOf(
+        uint256 balanceRecipientStreamBefore = ecoReserveProxy.balanceOf(
             streamId,
             RECIPIENT_STREAM_1
         );
-        uint256 balanceTreasuryBefore = IERC20(AWETH).balanceOf(
-            address(treasuryProxy)
+        uint256 balanceEcoReserveBefore = IERC20(AWETH).balanceOf(
+            address(ecoReserveProxy)
         );
-        uint256 balanceTreasuryStreamBefore = treasuryProxy.balanceOf(
+        uint256 balanceEcoReserveStreamBefore = ecoReserveProxy.balanceOf(
             streamId,
-            address(treasuryProxy)
+            address(ecoReserveProxy)
         );
 
         vm.expectEmit(true, true, true, true);
         emit WithdrawFromStream(streamId, RECIPIENT_STREAM_1, 1 ether);
-        treasuryProxy.withdrawFromStream(streamId, 1 ether);
+        ecoReserveProxy.withdrawFromStream(streamId, 1 ether);
 
         uint256 balanceRecipientAfter = IERC20(AWETH).balanceOf(
             RECIPIENT_STREAM_1
         );
-        uint256 balanceRecipientStreamAfter = treasuryProxy.balanceOf(
+        uint256 balanceRecipientStreamAfter = ecoReserveProxy.balanceOf(
             streamId,
             RECIPIENT_STREAM_1
         );
-        uint256 balanceTreasuryAfter = IERC20(AWETH).balanceOf(
-            address(treasuryProxy)
+        uint256 balanceEcoReserveAfter = IERC20(AWETH).balanceOf(
+            address(ecoReserveProxy)
         );
-        uint256 balanceTreasuryStreamAfter = treasuryProxy.balanceOf(
+        uint256 balanceEcoReserveStreamAfter = ecoReserveProxy.balanceOf(
             streamId,
-            address(treasuryProxy)
+            address(ecoReserveProxy)
         );
 
         if (
@@ -462,28 +462,28 @@ contract ValidationNewTreasury is BaseTest {
         if (
             !(
                 ApproximateMath._almostEqual(
-                    balanceTreasuryAfter,
-                    balanceTreasuryBefore - 1 ether
+                    balanceEcoReserveAfter,
+                    balanceEcoReserveBefore - 1 ether
                 )
             )
         ) {
-            revert Withdraw_WrongTreasuryBalance(
-                balanceTreasuryAfter,
-                balanceTreasuryBefore - 1 ether
+            revert Withdraw_WrongEcoReserveBalance(
+                balanceEcoReserveAfter,
+                balanceEcoReserveBefore - 1 ether
             );
         }
 
         if (
             !(
                 ApproximateMath._almostEqual(
-                    balanceTreasuryStreamAfter,
-                    balanceTreasuryStreamBefore
+                    balanceEcoReserveStreamAfter,
+                    balanceEcoReserveStreamBefore
                 )
             )
         ) {
-            revert Withdraw_WrongTreasuryBalanceStream(
-                balanceTreasuryStreamAfter,
-                balanceTreasuryStreamBefore
+            revert Withdraw_WrongEcoReserveBalanceStream(
+                balanceEcoReserveStreamAfter,
+                balanceEcoReserveStreamBefore
             );
         }
 
@@ -499,22 +499,26 @@ contract ValidationNewTreasury is BaseTest {
         );
 
         balanceRecipientBefore = IERC20(AWETH).balanceOf(RECIPIENT_STREAM_1);
-        balanceRecipientStreamBefore = treasuryProxy.balanceOf(
+        balanceRecipientStreamBefore = ecoReserveProxy.balanceOf(
             streamId,
             RECIPIENT_STREAM_1
         );
-        balanceTreasuryBefore = IERC20(AWETH).balanceOf(address(treasuryProxy));
-        balanceTreasuryStreamBefore = treasuryProxy.balanceOf(
+        balanceEcoReserveBefore = IERC20(AWETH).balanceOf(
+            address(ecoReserveProxy)
+        );
+        balanceEcoReserveStreamBefore = ecoReserveProxy.balanceOf(
             streamId,
-            address(treasuryProxy)
+            address(ecoReserveProxy)
         );
 
         vm.expectEmit(true, true, true, true);
         emit WithdrawFromStream(streamId, RECIPIENT_STREAM_1, 5 ether);
-        treasuryProxy.withdrawFromStream(streamId, 5 ether);
+        ecoReserveProxy.withdrawFromStream(streamId, 5 ether);
 
         balanceRecipientAfter = IERC20(AWETH).balanceOf(RECIPIENT_STREAM_1);
-        balanceTreasuryAfter = IERC20(AWETH).balanceOf(address(treasuryProxy));
+        balanceEcoReserveAfter = IERC20(AWETH).balanceOf(
+            address(ecoReserveProxy)
+        );
 
         if (
             !(
@@ -533,20 +537,20 @@ contract ValidationNewTreasury is BaseTest {
         if (
             !(
                 ApproximateMath._almostEqual(
-                    balanceTreasuryAfter,
-                    balanceTreasuryBefore - 5 ether
+                    balanceEcoReserveAfter,
+                    balanceEcoReserveBefore - 5 ether
                 )
             )
         ) {
-            revert Withdraw_WrongTreasuryBalance(
-                balanceTreasuryAfter,
-                balanceTreasuryBefore - 5 ether
+            revert Withdraw_WrongEcoReserveBalance(
+                balanceEcoReserveAfter,
+                balanceEcoReserveBefore - 5 ether
             );
         }
 
         // We check the stream was deleted, just by calling a view function requiring existence
         vm.expectRevert("stream does not exist");
-        balanceRecipientStreamAfter = treasuryProxy.balanceOf(
+        balanceRecipientStreamAfter = ecoReserveProxy.balanceOf(
             streamId,
             RECIPIENT_STREAM_1
         );

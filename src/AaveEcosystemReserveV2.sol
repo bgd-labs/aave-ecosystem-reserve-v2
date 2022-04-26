@@ -3,13 +3,13 @@ pragma solidity 0.8.11;
 
 import {IERC20} from "./interfaces/IERC20.sol";
 import {IStreamable} from "./interfaces/IStreamable.sol";
-import {AdminControlledTreasury} from "./AdminControlledTreasury.sol";
+import {AdminControlledEcosystemReserve} from "./AdminControlledEcosystemReserve.sol";
 import {ReentrancyGuard} from "./libs/ReentrancyGuard.sol";
 import {SafeERC20} from "./libs/SafeERC20.sol";
 
 /**
- * @title AaveStreamingTreasuryV1
- * @notice Stores ERC20 tokens of a treasury, adding streaming capabilities.
+ * @title AaveEcosystemReserve v2
+ * @notice Stores ERC20 tokens of an ecosystem reserve, adding streaming capabilities.
  * Modification of Sablier https://github.com/sablierhq/sablier/blob/develop/packages/protocol/contracts/Sablier.sol
  * Original can be found also deployed on https://etherscan.io/address/0xCD18eAa163733Da39c232722cBC4E8940b1D8888
  * Modifications:
@@ -19,8 +19,8 @@ import {SafeERC20} from "./libs/SafeERC20.sol";
  * - Same as with creation, on Sablier the `sender` and `recipient` can cancel a stream. Here, only fund admin and recipient
  * @author BGD Labs
  **/
-contract AaveStreamingTreasuryV1 is
-    AdminControlledTreasury,
+contract AaveEcosystemReserveV2 is
+    AdminControlledEcosystemReserve,
     ReentrancyGuard,
     IStreamable
 {

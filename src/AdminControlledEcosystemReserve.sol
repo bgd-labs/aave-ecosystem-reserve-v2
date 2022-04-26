@@ -7,13 +7,13 @@ import {SafeERC20} from "./libs/SafeERC20.sol";
 import {ReentrancyGuard} from "./libs/ReentrancyGuard.sol";
 
 /**
- * @title AdminControlledTreasury v4
+ * @title AdminControlledEcosystemReserve
  * @dev Done abstract to add an `initialize()` function on the child, with `initializer` modifier
  * @notice Stores ERC20 tokens, and allows to dispose of them via approval or transfer dynamics
  * Adapted to be an implementation of a transparent proxy
  * @author BGD Labs
  **/
-abstract contract AdminControlledTreasury is VersionedInitializable {
+abstract contract AdminControlledEcosystemReserve is VersionedInitializable {
     using SafeERC20 for IERC20;
 
     event NewFundsAdmin(address indexed fundsAdmin);
@@ -65,6 +65,6 @@ abstract contract AdminControlledTreasury is VersionedInitializable {
         emit NewFundsAdmin(admin);
     }
 
-    /// @dev needed in order to receive ETH from the Aave v1 treasury
+    /// @dev needed in order to receive ETH from the Aave v1 ecosystem reserve
     receive() external payable {}
 }

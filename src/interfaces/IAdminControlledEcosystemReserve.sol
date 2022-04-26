@@ -3,7 +3,7 @@ pragma solidity 0.8.11;
 
 import {IERC20} from "./IERC20.sol";
 
-interface IAdminControlledTreasury {
+interface IAdminControlledEcosystemReserve {
     function approve(
         IERC20 token,
         address recipient,
