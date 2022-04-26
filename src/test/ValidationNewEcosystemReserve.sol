@@ -250,8 +250,10 @@ contract ValidationNewEcosystemReserve is BaseTest {
             revert Create_InvalidRemaining(remainingBalance);
         if (ratePerSecond != (6 ether / 60))
             revert Create_InvalidRatePerSecond(ratePerSecond);
-        if (ecoReserveProxy.nextStreamId() != (streamId + 1))
-            revert Create_InvalidNextStreamId(ecoReserveProxy.nextStreamId());
+        if (ecoReserveProxy.getNextStreamId() != (streamId + 1))
+            revert Create_InvalidNextStreamId(
+                ecoReserveProxy.getNextStreamId()
+            );
 
         vm.stopPrank();
     }
