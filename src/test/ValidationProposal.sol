@@ -77,7 +77,7 @@ contract ValidationProposal is BaseTest {
         _validatePostProposalACL(proposalId);
     }
 
-    function _validatePostProposalUpfronts(uint256 proposalId) internal {
+    function _validatePostProposalUpfronts(uint256 proposalId) internal view {
         IAaveGov.ProposalWithoutVotes memory proposalData = AaveGovHelpers
             ._getProposalById(proposalId);
         // Generally, there is no reason to have more than 1 payload if using the DELEGATECALL pattern

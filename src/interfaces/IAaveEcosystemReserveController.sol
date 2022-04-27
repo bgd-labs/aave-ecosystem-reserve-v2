@@ -5,7 +5,7 @@ import {IERC20} from "./IERC20.sol";
 
 interface IAaveEcosystemReserveController {
     /**
-     * @dev Proxy function for ERC20's approve(), pointing to an specific collector contract
+     * @notice Proxy function for ERC20's approve(), pointing to a specific collector contract
      * @param collector The collector contract with funds (Aave ecosystem reserve)
      * @param token The asset address
      * @param recipient Allowance's recipient
@@ -19,7 +19,7 @@ interface IAaveEcosystemReserveController {
     ) external;
 
     /**
-     * @dev Proxy function for ERC20's transfer(), pointing to an specific collector contract
+     * @notice Proxy function for ERC20's transfer(), pointing to a specific collector contract
      * @param collector The collector contract with funds (Aave ecosystem reserve)
      * @param token The asset address
      * @param recipient Transfer's recipient
@@ -33,7 +33,7 @@ interface IAaveEcosystemReserveController {
     ) external;
 
     /**
-     * @dev Proxy function to create a stream of token on a specific collector contract
+     * @notice Proxy function to create a stream of token on a specific collector contract
      * @param collector The collector contract with funds (Aave ecosystem reserve)
      * @param recipient The recipient of the stream of token
      * @param deposit Total amount to be streamed
@@ -52,7 +52,7 @@ interface IAaveEcosystemReserveController {
     ) external returns (uint256);
 
     /**
-     * @dev Proxy function to withdraw from a stream of token on a specific collector contract
+     * @notice Proxy function to withdraw from a stream of token on a specific collector contract
      * @param collector The collector contract with funds (Aave ecosystem reserve)
      * @param streamId The id of the stream to withdraw tokens from
      * @param funds Amount to withdraw
@@ -65,7 +65,7 @@ interface IAaveEcosystemReserveController {
     ) external returns (bool);
 
     /**
-     * @dev Proxy function to cancel a stream of token on a specific collector contract
+     * @notice Proxy function to cancel a stream of token on a specific collector contract
      * @param collector The collector contract with funds (Aave ecosystem reserve)
      * @param streamId The id of the stream to cancel
      * @return bool If the cancellation happened correctly

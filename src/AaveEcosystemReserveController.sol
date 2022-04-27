@@ -12,7 +12,7 @@ contract AaveEcosystemReserveController is
     IAaveEcosystemReserveController
 {
     /**
-     * @dev Constructor.
+     * @notice Constructor.
      * @param aaveGovShortTimelock The address of the Aave's governance executor, owning this contract
      */
     constructor(address aaveGovShortTimelock) {

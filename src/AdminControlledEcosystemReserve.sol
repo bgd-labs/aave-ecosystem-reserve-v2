@@ -9,9 +9,9 @@ import {ReentrancyGuard} from "./libs/ReentrancyGuard.sol";
 
 /**
  * @title AdminControlledEcosystemReserve
- * @dev Done abstract to add an `initialize()` function on the child, with `initializer` modifier
  * @notice Stores ERC20 tokens, and allows to dispose of them via approval or transfer dynamics
  * Adapted to be an implementation of a transparent proxy
+ * @dev Done abstract to add an `initialize()` function on the child, with `initializer` modifier
  * @author BGD Labs
  **/
 abstract contract AdminControlledEcosystemReserve is

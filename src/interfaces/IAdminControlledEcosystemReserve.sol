@@ -4,18 +4,18 @@ pragma solidity 0.8.11;
 import {IERC20} from "./IERC20.sol";
 
 interface IAdminControlledEcosystemReserve {
-    /** @dev Emitted when the funds admin changes
+    /** @notice Emitted when the funds admin changes
      * @param fundsAdmin The new funds admin
      **/
     event NewFundsAdmin(address indexed fundsAdmin);
 
-    /** @dev Used as reference address for outflows of ETH
+    /** @notice Returns the mock ETH reference address
      * @return address The address
      **/
     function ETH_MOCK_ADDRESS() external pure returns (address);
 
     /**
-     * @dev Return the funds admin, only entity to be able to interact with this contract (controller of reserve)
+     * @notice Return the funds admin, only entity to be able to interact with this contract (controller of reserve)
      * @return address The address of the funds admin
      **/
     function getFundsAdmin() external view returns (address);
@@ -33,7 +33,7 @@ interface IAdminControlledEcosystemReserve {
     ) external;
 
     /**
-     * @dev Function for the funds admin to transfer ERC20 tokens to other parties
+     * @notice Function for the funds admin to transfer ERC20 tokens to other parties
      * @param token The address of the token to transfer
      * @param recipient Transfer's recipient
      * @param amount Amount to transfer
