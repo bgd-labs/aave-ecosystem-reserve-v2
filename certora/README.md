@@ -12,6 +12,7 @@ List of changes:
 1. Removed reentrancy guard on withdrawFromStream()
 2. Removed dependency on SafeERC20 library, working with basic IERC20 and DummyERC20Impl.sol
 3. Added `getStreamExists` public getter
+4. Changed  `_nextStreamId` visibility to public
 
 ## General Properties
 
@@ -99,3 +100,6 @@ List of changes:
 
 - nextStreamId only goes up 
 
+8. *rule* `onlyFundAdminCanCreate`
+
+- only fund admin can call createStream()

@@ -7,7 +7,7 @@ methods {
     cancelStream(uint256) returns (bool)
     getStreamExists(uint256) returns (bool) envfree
     getStream(uint256) returns (address, address, uint256, address, uint256, uint256, uint256, uint256) envfree
-    nextStreamId() returns (uint256) envfree
+    _nextStreamId() returns (uint256) envfree
     balanceOf(uint256, address) returns (uint256) // not envfree - uses block timestamp
     deltaOf(uint256) returns (uint256) // not envfree - uses block timestamp
     getFundsAdmin() returns (address) envfree
@@ -94,7 +94,7 @@ function createStreamParamCheck(address recipient, uint256 start, uint256 stop,
     mathint duration = stop - start;
     if (duration <= 0) return false;
     return recipient != 0 && recipient != msgSender && recipient != currentContract &&
-        start >= blockTimestamp && deposit >= duration && nextStreamId() < max_uint256 &&
+        start >= blockTimestamp && deposit >= duration && _nextStreamId() < max_uint256 &&
         deposit % duration == 0 && msgSender == getFundsAdmin();
 }
 
@@ -209,7 +209,7 @@ ghost mapping(uint256 => mathint) sumWithdrawalsPerStream {
  RemainingBalance is updated as a result of a withdrawal. 
  We calculate the withdrawal amount and add it to the withdrawals accumulator
  */
-hook Sstore streams[KEY uint256 id].remainingBalance uint256 balance
+hook Sstore _streams[KEY uint256 id].remainingBalance uint256 balance
     (uint256 old_balance) STORAGE {
         sumWithdrawalsPerStream[id] = sumWithdrawalsPerStream[id] + 
             to_mathint(old_balance) - to_mathint(balance);
@@ -249,13 +249,13 @@ invariant withdrawalsSolvent(uint256 streamId)
 
     @Formula:
         {
-            nextIdBefore = nextStreamId()
+            nextIdBefore = _nextStreamId()
         }
         <
             f(e, args)
         >
         {
-            nextStreamId() >= nextIdBefore
+            _nextStreamId() >= nextIdBefore
         }
 
     @Notes:
@@ -264,15 +264,17 @@ invariant withdrawalsSolvent(uint256 streamId)
     @Link:
 
 */
-rule nextStreamIdCorrectness(method f) {
+rule _nextStreamIdCorrectness(method f)
+filtered { f-> f.selector != initialize(address).selector} 
+{
     env e;
     calldataarg args;
-    uint256 nextStreamIdBefore = nextStreamId();
+    uint256 _nextStreamIdBefore = _nextStreamId();
 
     f(e, args);
 
-    uint256 nextStreamIdAfter = nextStreamId();
-    assert nextStreamIdAfter >= nextStreamIdBefore;
+    uint256 _nextStreamIdAfter = _nextStreamId();
+    assert _nextStreamIdAfter >= _nextStreamIdBefore;
 }
 
 /*
@@ -305,7 +307,7 @@ rule streamRemainingBalanceMonotonicity(method f, uint256 streamId) {
     require getStreamExists(streamId);
 
     // without this prover creates a new stream with the same id as the current one
-    require nextStreamId() > streamId;
+    require _nextStreamId() > streamId;
 
     uint256 remainingBalanceBefore = getStreamRemainingBalance(streamId);
 
@@ -621,4 +623,13 @@ rule treasuryBalanceCorrectness(method f, uint256 streamId) {
     uint256 treasuryBalanceAfter = _asset.balanceOf(currentContract);
 
     assert treasuryBalanceBefore - treasuryBalanceAfter <= recipientBalanceBefore;
+}
+
+rule onlyFundAdminCanCreate(address recipient, uint256 deposit, address token, uint256 start, uint256 end) {
+    env e;
+
+    createStream@withrevert(e, recipient, deposit, token, start, end);
+    bool reverted = lastReverted;
+    assert !reverted => e.msg.sender == getFundsAdmin();
+
 }

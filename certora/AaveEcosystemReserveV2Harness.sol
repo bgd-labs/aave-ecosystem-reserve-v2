@@ -2,14 +2,14 @@
 pragma solidity 0.8.11;
 
 import {IERC20} from "../src/interfaces/IERC20.sol";
-import {ISablier} from "../src/interfaces/ISablier.sol";
-import {AdminControlledTreasury} from "../src/libs/AdminControlledTreasury.sol";
+import {IStreamable} from "../src/interfaces/IStreamable.sol";
+import {AdminControlledEcosystemReserve} from "../src/AdminControlledEcosystemReserve.sol";
 import {ReentrancyGuard} from "../src/libs/ReentrancyGuard.sol";
-// import {SafeERC20} from "../src/libs/SafeERC20.sol";
+// import {SafeERC20} from "./libs/SafeERC20.sol";
 
 /**
- * @title AaveStreamingTreasuryV1
- * @notice Stores ERC20 tokens of a treasury, adding streaming capabilities.
+ * @title AaveEcosystemReserve v2
+ * @notice Stores ERC20 tokens of an ecosystem reserve, adding streaming capabilities.
  * Modification of Sablier https://github.com/sablierhq/sablier/blob/develop/packages/protocol/contracts/Sablier.sol
  * Original can be found also deployed on https://etherscan.io/address/0xCD18eAa163733Da39c232722cBC4E8940b1D8888
  * Modifications:
@@ -19,17 +19,10 @@ import {ReentrancyGuard} from "../src/libs/ReentrancyGuard.sol";
  * - Same as with creation, on Sablier the `sender` and `recipient` can cancel a stream. Here, only fund admin and recipient
  * @author BGD Labs
  **/
-
-/**
-* Getters (view functions) needed for Certora spec
-* 1. getStreamExists(uint256 streamId) - returns isEntity (boolean) for any given stream id
-**/
-
-
-contract AaveStreamingTreasuryV1 is
-    AdminControlledTreasury,
+contract AaveEcosystemReserveV2 is
+    AdminControlledEcosystemReserve,
     ReentrancyGuard,
-    ISablier
+    IStreamable
 {
     // using SafeERC20 for IERC20;
 
@@ -38,12 +31,12 @@ contract AaveStreamingTreasuryV1 is
     /**
      * @notice Counter for new stream ids.
      */
-    uint256 public nextStreamId;
+    uint256 public _nextStreamId;
 
     /**
      * @notice The stream objects identifiable by their unsigned integer ids.
      */
-    mapping(uint256 => Stream) private streams;
+    mapping(uint256 => Stream) private _streams;
 
     /*** Modifiers ***/
 
@@ -53,7 +46,7 @@ contract AaveStreamingTreasuryV1 is
     modifier onlyAdminOrRecipient(uint256 streamId) {
         require(
             msg.sender == _fundsAdmin ||
-                msg.sender == streams[streamId].recipient,
+                msg.sender == _streams[streamId].recipient,
             "caller is not the funds admin or the recipient of the stream"
         );
         _;
@@ -63,17 +56,26 @@ contract AaveStreamingTreasuryV1 is
      * @dev Throws if the provided id does not point to a valid stream.
      */
     modifier streamExists(uint256 streamId) {
-        require(streams[streamId].isEntity, "stream does not exist");
+        require(_streams[streamId].isEntity, "stream does not exist");
         _;
     }
 
     /*** Contract Logic Starts Here */
 
-    constructor() {
-        nextStreamId = 100000;
+    function initialize(address fundsAdmin) external initializer {
+        _nextStreamId = 100000;
+        _setFundsAdmin(fundsAdmin);
     }
 
     /*** View Functions ***/
+
+    /**
+     * @notice Returns the next available stream id
+     * @notice Returns the stream id.
+     */
+    function getNextStreamId() external view returns (uint256) {
+        return _nextStreamId;
+    }
 
     /**
      * @notice Returns the stream with all its properties.
@@ -96,14 +98,14 @@ contract AaveStreamingTreasuryV1 is
             uint256 ratePerSecond
         )
     {
-        sender = streams[streamId].sender;
-        recipient = streams[streamId].recipient;
-        deposit = streams[streamId].deposit;
-        tokenAddress = streams[streamId].tokenAddress;
-        startTime = streams[streamId].startTime;
-        stopTime = streams[streamId].stopTime;
-        remainingBalance = streams[streamId].remainingBalance;
-        ratePerSecond = streams[streamId].ratePerSecond;
+        sender = _streams[streamId].sender;
+        recipient = _streams[streamId].recipient;
+        deposit = _streams[streamId].deposit;
+        tokenAddress = _streams[streamId].tokenAddress;
+        startTime = _streams[streamId].startTime;
+        stopTime = _streams[streamId].stopTime;
+        remainingBalance = _streams[streamId].remainingBalance;
+        ratePerSecond = _streams[streamId].ratePerSecond;
     }
 
     /**
@@ -120,11 +122,16 @@ contract AaveStreamingTreasuryV1 is
         streamExists(streamId)
         returns (uint256 delta)
     {
-        Stream memory stream = streams[streamId];
+        Stream memory stream = _streams[streamId];
         if (block.timestamp <= stream.startTime) return 0;
         if (block.timestamp < stream.stopTime)
             return block.timestamp - stream.startTime;
         return stream.stopTime - stream.startTime;
+    }
+
+    // certora getter
+    function getStreamExists(uint256 streamId) public view returns (bool) {
+        return _streams[streamId].isEntity;
     }
 
     struct BalanceOfLocalVars {
@@ -146,7 +153,7 @@ contract AaveStreamingTreasuryV1 is
         streamExists(streamId)
         returns (uint256 balance)
     {
-        Stream memory stream = streams[streamId];
+        Stream memory stream = _streams[streamId];
         BalanceOfLocalVars memory vars;
 
         uint256 delta = deltaOf(streamId);
@@ -172,11 +179,6 @@ contract AaveStreamingTreasuryV1 is
             return vars.senderBalance;
         }
         return 0;
-    }
-
-    // certora getter
-    function getStreamExists(uint256 streamId) public view returns (bool) {
-        return streams[streamId].isEntity;
     }
 
     /*** Public Effects & Interactions Functions ***/
@@ -213,7 +215,7 @@ contract AaveStreamingTreasuryV1 is
         uint256 startTime,
         uint256 stopTime
     ) public onlyFundsAdmin returns (uint256) {
-        require(recipient != address(0x00), "stream to the zero address");
+        require(recipient != address(0), "stream to the zero address");
         require(recipient != address(this), "stream to the contract itself");
         require(recipient != msg.sender, "stream to the caller");
         require(deposit > 0, "deposit is zero");
@@ -238,8 +240,8 @@ contract AaveStreamingTreasuryV1 is
         vars.ratePerSecond = deposit / vars.duration;
 
         /* Create and store the stream object. */
-        uint256 streamId = nextStreamId;
-        streams[streamId] = Stream({
+        uint256 streamId = _nextStreamId;
+        _streams[streamId] = Stream({
             remainingBalance: deposit,
             deposit: deposit,
             isEntity: true,
@@ -252,7 +254,7 @@ contract AaveStreamingTreasuryV1 is
         });
 
         /* Increment the next stream id. */
-        nextStreamId++;
+        _nextStreamId++;
 
         emit CreateStream(
             streamId,
@@ -277,20 +279,19 @@ contract AaveStreamingTreasuryV1 is
      */
     function withdrawFromStream(uint256 streamId, uint256 amount)
         external
-        // nonReentrant
         streamExists(streamId)
         onlyAdminOrRecipient(streamId)
         returns (bool)
     {
         require(amount > 0, "amount is zero");
-        Stream memory stream = streams[streamId];
+        Stream memory stream = _streams[streamId];
 
         uint256 balance = balanceOf(streamId, stream.recipient);
         require(balance >= amount, "amount exceeds the available balance");
 
-        streams[streamId].remainingBalance = stream.remainingBalance - amount;
+        _streams[streamId].remainingBalance = stream.remainingBalance - amount;
 
-        if (streams[streamId].remainingBalance == 0) delete streams[streamId];
+        if (_streams[streamId].remainingBalance == 0) delete _streams[streamId];
 
         // IERC20(stream.tokenAddress).safeTransfer(stream.recipient, amount);
         IERC20(stream.tokenAddress).transfer(stream.recipient, amount);
@@ -313,15 +314,14 @@ contract AaveStreamingTreasuryV1 is
         onlyAdminOrRecipient(streamId)
         returns (bool)
     {
-        Stream memory stream = streams[streamId];
+        Stream memory stream = _streams[streamId];
         uint256 senderBalance = balanceOf(streamId, stream.sender);
         uint256 recipientBalance = balanceOf(streamId, stream.recipient);
 
-        delete streams[streamId];
+        delete _streams[streamId];
 
         IERC20 token = IERC20(stream.tokenAddress);
         if (recipientBalance > 0)
-            // assumes contract holds the tokens.
             // token.safeTransfer(stream.recipient, recipientBalance);
             token.transfer(stream.recipient, recipientBalance);
 
