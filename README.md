@@ -38,7 +38,7 @@ It can be found on [PayloadAaveBGD](./src/PayloadAaveBGD.sol) and does the follo
 - Full test coverage via units tests in the Forge environment.
 - Security review from Aave community members.
 - Minimal changes on Sablier's v1 logic, which is [audited](https://medium.com/sablier/sablier-v1-is-live-5a5350db16ae) and battle tested codebase (running in production with meaningful funds for a long time).
-- Set of properties (formal verification) by Certora.
+- Set of properties (formal verification) by Certora. A full report with the last run and the properties checked can be found [here](./certora/README.md)
 
 <br>
 <br>
