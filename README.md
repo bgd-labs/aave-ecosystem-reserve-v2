@@ -38,7 +38,13 @@ It can be found on [PayloadAaveBGD](./src/PayloadAaveBGD.sol) and does the follo
 - Full test coverage via units tests in the Forge environment.
 - Security review from Aave community members.
 - Minimal changes on Sablier's v1 logic, which is [audited](https://medium.com/sablier/sablier-v1-is-live-5a5350db16ae) and battle tested codebase (running in production with meaningful funds for a long time).
-- Set of properties (formal verification) by Certora. A full report with the last run and the properties checked can be found [here](./certora/README.md)
+- Set of properties (formal verification) by Certora. A full report with the last run and the properties checked can be found [here](./certora/README.md).
+- Slither analysis of the codebase.
+
+### Design assumptions
+- **Solidity 0.8.11 is safe**.
+- **`_fundsAdmin` is a trusted party**. To be configure with the AaveEcosystemReserveController address, which in turn can only be called by the Aave governance via the short executor. This allow us to assume lack of problems with re-entrancy, on those function not protected with the nonReentrant modifier. In general, that type of problems should not exist due to respect of Checks-Effects-Interactions, but this assumption completely closes any vector of attack on cases like external parties sending non-ERC20 tokens to the ecosystem's reserve.
+- **Usage of `block.timestamp` is safe on the context of streaming**. Even assuming potential manipulation of the `block.timestamp`, the consequences will be minor in terms of funds, while the advantages of using a timestamp reference compared with blocks are obvious on a system of streaming based on time.
 
 <br>
 <br>
