@@ -209,7 +209,7 @@ contract AaveEcosystemReserveV2 is
         address tokenAddress,
         uint256 startTime,
         uint256 stopTime
-    ) public onlyFundsAdmin returns (uint256) {
+    ) external onlyFundsAdmin returns (uint256) {
         require(recipient != address(0), "stream to the zero address");
         require(recipient != address(this), "stream to the contract itself");
         require(recipient != msg.sender, "stream to the caller");

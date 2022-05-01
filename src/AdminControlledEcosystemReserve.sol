@@ -6,6 +6,7 @@ import {IAdminControlledEcosystemReserve} from "./interfaces/IAdminControlledEco
 import {VersionedInitializable} from "./libs/VersionedInitializable.sol";
 import {SafeERC20} from "./libs/SafeERC20.sol";
 import {ReentrancyGuard} from "./libs/ReentrancyGuard.sol";
+import {Address} from "./libs/Address.sol";
 
 /**
  * @title AdminControlledEcosystemReserve
@@ -19,6 +20,7 @@ abstract contract AdminControlledEcosystemReserve is
     IAdminControlledEcosystemReserve
 {
     using SafeERC20 for IERC20;
+    using Address for address;
 
     address internal _fundsAdmin;
 
@@ -57,9 +59,10 @@ abstract contract AdminControlledEcosystemReserve is
         address recipient,
         uint256 amount
     ) external onlyFundsAdmin {
+        require(recipient != address(0), "INVALID_0X_RECIPIENT");
+
         if (address(token) == ETH_MOCK_ADDRESS) {
-            (bool success, ) = recipient.call{value: amount}("");
-            require(success, "REVERTED_ETH_TRANSFER");
+            recipient.functionCallWithValue("", amount);
         } else {
             token.safeTransfer(recipient, amount);
         }
