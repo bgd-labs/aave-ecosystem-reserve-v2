@@ -15,7 +15,7 @@ So in order to enable this, the strategy has been:
   - Parallel to creation, on cancellation of a stream, the funds that should be returned to the `sender` of the stream are not sent anywhere, they just remain in the ecosystem reserve.
   - SafeMath/CarefulMath are not needed, as the code has been updated to Solidity 0.8.11, already including native safe math.
 
-Here it is possible to see a full diff of the changes done [https://www.diffchecker.com/JGvs8U3u](https://www.diffchecker.com/JGvs8U3u).
+Here it is possible to see a full diff of the changes done [https://www.diffchecker.com/iqSrVXMv](https://www.diffchecker.com/iqSrVXMv).
 <br>
 <br>
 
