@@ -62,7 +62,7 @@ abstract contract AdminControlledEcosystemReserve is
         require(recipient != address(0), "INVALID_0X_RECIPIENT");
 
         if (address(token) == ETH_MOCK_ADDRESS) {
-            recipient.functionCallWithValue("", amount);
+            recipient.sendValue("", amount);
         } else {
             token.safeTransfer(recipient, amount);
         }
