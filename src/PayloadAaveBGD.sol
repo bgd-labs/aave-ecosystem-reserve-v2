@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.11;
 
-import {AaveEcosystemReserveController} from "./AaveEcosystemReserveController.sol";
-import {AaveEcosystemReserveV2} from "./AaveEcosystemReserveV2.sol";
-import {IInitializableAdminUpgradeabilityProxy} from "./interfaces/IInitializableAdminUpgradeabilityProxy.sol";
+import {IAaveEcosystemReserveController} from "./interfaces/IAaveEcosystemReserveController.sol";
 import {IStreamable} from "./interfaces/IStreamable.sol";
+import {IInitializableAdminUpgradeabilityProxy} from "./interfaces/IInitializableAdminUpgradeabilityProxy.sol";
 import {IAdminControlledEcosystemReserve} from "./interfaces/IAdminControlledEcosystemReserve.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
 
@@ -22,6 +21,14 @@ contract PayloadAaveBGD {
 
     address public constant GOV_SHORT_EXECUTOR =
         0xEE56e2B3D491590B5b31738cC34d5232F378a8D5;
+
+    IAaveEcosystemReserveController public constant CONTROLLER_OF_COLLECTOR =
+        IAaveEcosystemReserveController(
+            0x3d569673dAa0575c936c7c67c4E6AedA69CC630C
+        );
+
+    IStreamable public constant ECOSYSTEM_RESERVE_V2_IMPL =
+        IStreamable(0x1aa435ed226014407Fa6b889e9d06c02B1a12AF3);
 
     IERC20 public constant AUSDC =
         IERC20(0xBcca60bB61934080951369a648Fb03DF4F96263C);
@@ -41,58 +48,49 @@ contract PayloadAaveBGD {
     uint256 public constant AAVE_STREAM_AMOUNT = 12600000000000074880000; // ~12'600 AAVE. A bit more for the streaming requirements
     uint256 public constant STREAMS_DURATION = 450 days; // 15 months of 30 days
 
-    /// TODO CHANGE!!!!
     address public constant BGD_RECIPIENT =
-        address(0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB);
+        0xb812d0944f8F581DfAA3a93Dda0d22EcEf51A9CF;
 
     function execute() external {
-        // We deploy only 1 new controller of collector, to use in common for the treasuries of the protocol and AAVE
-        AaveEcosystemReserveController controllerOfCollector = new AaveEcosystemReserveController(
-                GOV_SHORT_EXECUTOR
-            );
-
-        // New implementation of the ecosystem reserve, with streaming capabilities
-        // Important to highlight that the REVISION used (4) is higher than the current one for both treasuries
-        AaveEcosystemReserveV2 ecoReserveImpl = new AaveEcosystemReserveV2();
-
         // Upgrade of both treasuries' implementation
+        // We use a common implementation for both ecosystem's reserves
         COLLECTOR_V2_PROXY.upgradeToAndCall(
-            address(ecoReserveImpl),
+            address(ECOSYSTEM_RESERVE_V2_IMPL),
             abi.encodeWithSelector(
                 IStreamable.initialize.selector,
-                address(controllerOfCollector)
+                address(CONTROLLER_OF_COLLECTOR)
             )
         );
         AAVE_TOKEN_COLLECTOR_PROXY.upgradeToAndCall(
-            address(ecoReserveImpl),
+            address(ECOSYSTEM_RESERVE_V2_IMPL),
             abi.encodeWithSelector(
                 IStreamable.initialize.selector,
-                address(controllerOfCollector)
+                address(CONTROLLER_OF_COLLECTOR)
             )
         );
         // We initialise the implementation, for security
-        ecoReserveImpl.initialize(address(controllerOfCollector));
+        ECOSYSTEM_RESERVE_V2_IMPL.initialize(address(CONTROLLER_OF_COLLECTOR));
 
         // Transfer of the upfront payment, 40% of the total
-        controllerOfCollector.transfer(
+        CONTROLLER_OF_COLLECTOR.transfer(
             address(COLLECTOR_V2_PROXY),
             AUSDC,
             BGD_RECIPIENT,
             AUSDC_UPFRONT_AMOUNT
         );
-        controllerOfCollector.transfer(
+        CONTROLLER_OF_COLLECTOR.transfer(
             address(COLLECTOR_V2_PROXY),
             ADAI,
             BGD_RECIPIENT,
             ADAI_UPFRONT_AMOUNT
         );
-        controllerOfCollector.transfer(
+        CONTROLLER_OF_COLLECTOR.transfer(
             address(COLLECTOR_V2_PROXY),
             AUSDT,
             BGD_RECIPIENT,
             AUSDT_UPFRONT_AMOUNT
         );
-        controllerOfCollector.transfer(
+        CONTROLLER_OF_COLLECTOR.transfer(
             address(AAVE_TOKEN_COLLECTOR_PROXY),
             AAVE,
             BGD_RECIPIENT,
@@ -100,7 +98,7 @@ contract PayloadAaveBGD {
         );
 
         // Creation of the streams
-        controllerOfCollector.createStream(
+        CONTROLLER_OF_COLLECTOR.createStream(
             address(COLLECTOR_V2_PROXY),
             BGD_RECIPIENT,
             AUSDC_STREAM_AMOUNT,
@@ -108,7 +106,7 @@ contract PayloadAaveBGD {
             block.timestamp,
             block.timestamp + STREAMS_DURATION
         );
-        controllerOfCollector.createStream(
+        CONTROLLER_OF_COLLECTOR.createStream(
             address(AAVE_TOKEN_COLLECTOR_PROXY),
             BGD_RECIPIENT,
             AAVE_STREAM_AMOUNT,

@@ -98,8 +98,8 @@ contract ValidationNewEcosystemReserve is BaseTest {
     function _initNewCollectorOnProxy() internal returns (address) {
         AaveEcosystemReserveV2 ecoReserveImpl = new AaveEcosystemReserveV2();
 
-        controllerOfCollector = new AaveEcosystemReserveController(
-            GOV_SHORT_EXECUTOR
+        controllerOfCollector = AaveEcosystemReserveController(
+            0x3d569673dAa0575c936c7c67c4E6AedA69CC630C
         );
 
         vm.deal(GOV_SHORT_EXECUTOR, 1 ether);
