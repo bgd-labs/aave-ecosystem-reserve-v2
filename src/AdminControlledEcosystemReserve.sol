@@ -20,7 +20,7 @@ abstract contract AdminControlledEcosystemReserve is
     IAdminControlledEcosystemReserve
 {
     using SafeERC20 for IERC20;
-    using Address for address;
+    using Address for address payable;
 
     address internal _fundsAdmin;
 
@@ -62,7 +62,7 @@ abstract contract AdminControlledEcosystemReserve is
         require(recipient != address(0), "INVALID_0X_RECIPIENT");
 
         if (address(token) == ETH_MOCK_ADDRESS) {
-            recipient.sendValue("", amount);
+            payable(recipient).sendValue(amount);
         } else {
             token.safeTransfer(recipient, amount);
         }
