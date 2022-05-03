@@ -41,7 +41,7 @@ contract PayloadAaveBGD {
     uint256 public constant AAVE_STREAM_AMOUNT = 12600000000000074880000; // ~12'600 AAVE. A bit more for the streaming requirements
     uint256 public constant STREAMS_DURATION = 450 days; // 15 months of 30 days
 
-    /// TODO CHANGE!!!!
+    /// IMPORTANT. This is a mock address, only used for tests of the payload. CHANGE IT BEFORE ANY USE IN PRODUCTION
     address public constant BGD_RECIPIENT =
         address(0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB);
 
