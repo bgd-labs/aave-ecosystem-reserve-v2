@@ -63,7 +63,6 @@ contract AaveEcosystemReserveV2 is
     /*** Contract Logic Starts Here */
 
     function initialize(address fundsAdmin) external initializer {
-        _nextStreamId = 100000;
         _setFundsAdmin(fundsAdmin);
     }
 
