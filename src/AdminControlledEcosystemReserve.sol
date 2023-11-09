@@ -68,6 +68,12 @@ abstract contract AdminControlledEcosystemReserve is
         }
     }
 
+    /// @inheritdoc IAdminControlledEcosystemReserve
+    function setFundsAdmin(address admin) external onlyFundsAdmin {
+        _setFundsAdmin(admin);
+    }
+
+
     /// @dev needed in order to receive ETH from the Aave v1 ecosystem reserve
     receive() external payable {}
 

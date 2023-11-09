@@ -1,6 +1,6 @@
 ```diff
 diff --git a/etherscan/deployed/ecosystemReserve/AaveEcosystemReserveV2/src/contracts/AaveEcosystemReserveV2.sol b/flatten/AaveEcosystemReserveV2.sol
-index d7ab568..20e090d 100644
+index d7ab568..efc6ffe 100644
 --- a/etherscan/deployed/ecosystemReserve/AaveEcosystemReserveV2/src/contracts/AaveEcosystemReserveV2.sol
 +++ b/flatten/AaveEcosystemReserveV2.sol
 @@ -1,5 +1,5 @@
@@ -30,9 +30,17 @@ index d7ab568..20e090d 100644
  interface IAdminControlledEcosystemReserve {
      /** @notice Emitted when the funds admin changes
       * @param fundsAdmin The new funds admin
-@@ -188,9 +190,7 @@ interface IAdminControlledEcosystemReserve {
+@@ -187,10 +189,15 @@ interface IAdminControlledEcosystemReserve {
+         address recipient,
          uint256 amount
      ) external;
++
++    /**
++     * @notice Transfer the ownership of the funds administrator role.
++          This function should only be callable by the current funds administrator.
++     * @param admin The address of the new funds administrator
++     **/
++    function setFundsAdmin(address admin) external;
  }
 -interface IAaveGovernanceV2 {
 -    function submitVote(uint256 proposalId, bool support) external;
@@ -41,7 +49,7 @@ index d7ab568..20e090d 100644
  /**
   * @title VersionedInitializable
   *
-@@ -233,15 +233,11 @@ abstract contract VersionedInitializable {
+@@ -233,15 +240,11 @@ abstract contract VersionedInitializable {
      // Reserved storage space to allow for layout changes in the future.
      uint256[50] private ______gap;
  }
@@ -58,7 +66,7 @@ index d7ab568..20e090d 100644
  /**
   * @dev Collection of functions related to the address type
   */
-@@ -583,10 +579,9 @@ library SafeERC20 {
+@@ -583,10 +586,9 @@ library SafeERC20 {
          }
      }
  }
@@ -70,7 +78,7 @@ index d7ab568..20e090d 100644
  /**
   * @dev Contract module that helps prevent reentrant calls to a function.
   *
-@@ -646,7 +641,6 @@ abstract contract ReentrancyGuard {
+@@ -646,7 +648,6 @@ abstract contract ReentrancyGuard {
      }
  }
  
@@ -78,7 +86,7 @@ index d7ab568..20e090d 100644
  /**
   * @title AdminControlledEcosystemReserve
   * @notice Stores ERC20 tokens, and allows to dispose of them via approval or transfer dynamics
-@@ -663,7 +657,7 @@ abstract contract AdminControlledEcosystemReserve is
+@@ -663,7 +664,7 @@ abstract contract AdminControlledEcosystemReserve is
  
      address internal _fundsAdmin;
  
@@ -87,7 +95,19 @@ index d7ab568..20e090d 100644
  
      /// @inheritdoc IAdminControlledEcosystemReserve
      address public constant ETH_MOCK_ADDRESS =
-@@ -716,7 +710,6 @@ abstract contract AdminControlledEcosystemReserve is
+@@ -707,6 +708,11 @@ abstract contract AdminControlledEcosystemReserve is
+         }
+     }
+ 
++    /// @inheritdoc IAdminControlledEcosystemReserve
++    function setFundsAdmin(address admin) external onlyFundsAdmin {
++        _setFundsAdmin(admin);
++    }
++
+     /// @dev needed in order to receive ETH from the Aave v1 ecosystem reserve
+     receive() external payable {}
+ 
+@@ -716,7 +722,6 @@ abstract contract AdminControlledEcosystemReserve is
      }
  }
  
@@ -95,7 +115,7 @@ index d7ab568..20e090d 100644
  /**
   * @title AaveEcosystemReserve v2
   * @notice Stores ERC20 tokens of an ecosystem reserve, adding streaming capabilities.
-@@ -771,15 +764,9 @@ contract AaveEcosystemReserveV2 is
+@@ -771,15 +776,9 @@ contract AaveEcosystemReserveV2 is
      }
  
      /*** Contract Logic Starts Here */
@@ -114,7 +134,7 @@ index d7ab568..20e090d 100644
      }
  
      /*** View Functions ***/
-@@ -1044,3 +1031,4 @@ contract AaveEcosystemReserveV2 is
+@@ -1044,3 +1043,4 @@ contract AaveEcosystemReserveV2 is
          return true;
      }
  }

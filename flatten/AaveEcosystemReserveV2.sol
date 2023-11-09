@@ -189,6 +189,13 @@ interface IAdminControlledEcosystemReserve {
         address recipient,
         uint256 amount
     ) external;
+
+    /**
+     * @notice Transfer the ownership of the funds administrator role.
+          This function should only be callable by the current funds administrator.
+     * @param admin The address of the new funds administrator
+     **/
+    function setFundsAdmin(address admin) external;
 }
 
 /**
@@ -699,6 +706,11 @@ abstract contract AdminControlledEcosystemReserve is
         } else {
             token.safeTransfer(recipient, amount);
         }
+    }
+
+    /// @inheritdoc IAdminControlledEcosystemReserve
+    function setFundsAdmin(address admin) external onlyFundsAdmin {
+        _setFundsAdmin(admin);
     }
 
     /// @dev needed in order to receive ETH from the Aave v1 ecosystem reserve

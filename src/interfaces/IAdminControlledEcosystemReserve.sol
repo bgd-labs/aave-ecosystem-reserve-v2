@@ -43,4 +43,11 @@ interface IAdminControlledEcosystemReserve {
         address recipient,
         uint256 amount
     ) external;
+
+    /**
+     * @notice Transfer the ownership of the funds administrator role.
+          This function should only be callable by the current funds administrator.
+     * @param admin The address of the new funds administrator
+     **/
+    function setFundsAdmin(address admin) external;
 }
