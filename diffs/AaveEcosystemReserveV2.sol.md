@@ -1,6 +1,6 @@
 ```diff
 diff --git a/etherscan/deployed/ecosystemReserve/AaveEcosystemReserveV2/src/contracts/AaveEcosystemReserveV2.sol b/flatten/AaveEcosystemReserveV2.sol
-index d7ab568..c3c70e7 100644
+index d7ab568..20e090d 100644
 --- a/etherscan/deployed/ecosystemReserve/AaveEcosystemReserveV2/src/contracts/AaveEcosystemReserveV2.sol
 +++ b/flatten/AaveEcosystemReserveV2.sol
 @@ -1,5 +1,5 @@
@@ -78,6 +78,15 @@ index d7ab568..c3c70e7 100644
  /**
   * @title AdminControlledEcosystemReserve
   * @notice Stores ERC20 tokens, and allows to dispose of them via approval or transfer dynamics
+@@ -663,7 +657,7 @@ abstract contract AdminControlledEcosystemReserve is
+ 
+     address internal _fundsAdmin;
+ 
+-    uint256 public constant REVISION = 5;
++    uint256 public constant REVISION = 6;
+ 
+     /// @inheritdoc IAdminControlledEcosystemReserve
+     address public constant ETH_MOCK_ADDRESS =
 @@ -716,7 +710,6 @@ abstract contract AdminControlledEcosystemReserve is
      }
  }
